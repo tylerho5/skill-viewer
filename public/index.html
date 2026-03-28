@@ -84,11 +84,11 @@
 
         /* Sources Panel */
         .sources-panel .section {
-            padding: 12px 0;
+            padding: 4px 0;
         }
 
         .sources-panel .section-header {
-            padding: 8px 16px;
+            padding: 6px 12px;
             font-size: 11px;
             font-weight: 600;
             color: var(--text-muted);
@@ -96,7 +96,7 @@
             letter-spacing: 0.5px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: pointer;
         }
 
@@ -110,15 +110,14 @@
 
         .sources-panel .section-header .count {
             background: var(--border);
-            padding: 2px 6px;
+            padding: 1px 6px;
             border-radius: 10px;
             font-size: 10px;
         }
 
         .sources-panel .source-item {
             position: relative;
-            padding: 10px 16px;
-            padding-left: 28px;
+            padding: 6px 12px 6px 24px;
             cursor: pointer;
             border-left: 3px solid transparent;
             transition: all 0.15s ease;
@@ -135,8 +134,8 @@
         }
 
         .sources-panel .source-item .name {
-            font-size: 14px;
-            margin-bottom: 2px;
+            font-size: 13px;
+            margin-bottom: 1px;
         }
 
         .sources-panel .source-item .path {
@@ -144,6 +143,82 @@
             color: var(--text-muted);
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .project-add-form {
+            padding: 6px 12px 6px 24px;
+        }
+
+        .project-add-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .project-add-row input {
+            flex: 1;
+            min-width: 0;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .project-add-row input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .project-add-row button {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 4px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: inherit;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .project-add-row button:hover {
+            background: var(--accent-hover);
+        }
+
+        .project-error {
+            color: #cc3333;
+            font-size: 11px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .remove-project-btn {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .source-item:hover .remove-project-btn {
+            opacity: 1;
+        }
+
+        .remove-project-btn:hover {
+            color: #cc3333;
+            background: var(--bg-tertiary);
         }
 
         /* Skills Panel */
@@ -839,12 +914,12 @@
                     <span class="count" id="projects-count">0</span>
                 </div>
                 <div class="section-items">
-                    <div style="padding: 6px 12px;">
-                        <div style="display: flex; gap: 4px;">
-                            <input type="text" id="project-dir-input" placeholder="/path/to/project" style="flex:1; padding: 4px 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0; font-size: 12px;">
-                            <button id="add-project-btn" style="padding: 4px 10px; border: none; border-radius: 4px; background: #4a9eff; color: #fff; cursor: pointer; font-size: 12px; white-space: nowrap;">Add</button>
+                    <div class="project-add-form">
+                        <div class="project-add-row">
+                            <input type="text" id="project-dir-input" placeholder="/path/to/project">
+                            <button id="add-project-btn">Add</button>
                         </div>
-                        <div id="project-error" style="color: #ff6b6b; font-size: 11px; margin-top: 4px; display: none;"></div>
+                        <div class="project-error" id="project-error"></div>
                     </div>
                     <div id="project-items"></div>
                 </div>
@@ -1005,8 +1080,8 @@
                 projectItems.innerHTML = sources.projects.map(p => `
                     <div class="source-item" data-path="${p.path}" data-type="project">
                         <div class="name">${escapeHtml(p.name)}</div>
-                        <div class="path">${p.commandCount + p.skillCount} items · ${escapeHtml(p.projectDir)}</div>
-                        <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" style="position:absolute; right:8px; top:8px; background:none; border:none; color:#888; cursor:pointer; font-size:14px;" title="Remove">✕</button>
+                        <div class="path">${p.commandCount + p.skillCount} items</div>
+                        <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" title="Remove">✕</button>
                     </div>
                 `).join('');
             } else {
