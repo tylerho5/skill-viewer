@@ -1,0 +1,154 @@
+import express from "express";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { SkillIndex, getSources, getSkillsForSource, buildTree } from "./index.js";
+import { parseFrontmatter, extractFrontmatterRaw, stripFrontmatter } from "./frontmatter.js";
+import type { HealthInfo } from "./types.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function createApp(index: SkillIndex) {
+  const app = express();
+
+  // Serve frontend
+  const publicDir = path.resolve(__dirname, "..", "public");
+  app.get("/", (_req, res) => {
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+
+  // --- API Routes ---
+
+  app.get("/api/sources", (_req, res) => {
+    res.json(getSources());
+  });
+
+  app.get("/api/skills", (req, res) => {
+    const source = req.query.source as string | undefined;
+    if (!source) { res.json([]); return; }
+    const skills = getSkillsForSource(source, index).map((s) => ({
+      name: s.name,
+      description: s.description,
+      path: s.path,
+      filename: s.filename,
+      skill_dir: s.skillDir,
+      old: s.old,
+      health: s.health ? toSnakeHealth(s.health) : undefined,
+      tool_references: s.toolReferences,
+      structural_tags: s.structuralTags,
+    }));
+    res.json(skills);
+  });
+
+  app.get("/api/skill/*path", (req, res) => {
+    let skillPath = (req.params as Record<string, string>).path;
+    if (!skillPath.startsWith("/")) skillPath = "/" + skillPath;
+    if (!fs.existsSync(skillPath)) { res.status(404).json({ error: "Skill not found" }); return; }
+
+    try {
+      const content = fs.readFileSync(skillPath, "utf-8");
+      const frontmatter = parseFrontmatter(content);
+      const frontmatterRaw = extractFrontmatterRaw(content);
+      const body = stripFrontmatter(content);
+
+      const response: Record<string, unknown> = {
+        name: frontmatter.name || path.basename(skillPath, path.extname(skillPath)),
+        description: frontmatter.description || "",
+        frontmatter,
+        frontmatter_raw: frontmatterRaw,
+        content: body,
+        path: skillPath,
+        references: [],
+      };
+
+      const indexed = index.get(skillPath);
+      if (indexed) {
+        response.cross_references = indexed.crossReferences;
+        response.tool_references = indexed.toolReferences;
+        response.structural_tags = indexed.structuralTags;
+        response.word_count = indexed.wordCount;
+        response.health = toSnakeHealth(index.getHealth(skillPath)!);
+        response.skill_dir = path.basename(skillPath) === "SKILL.md" ? path.dirname(skillPath) : null;
+      }
+
+      res.json(response);
+    } catch (e: unknown) {
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.get("/api/reference/*path", (req, res) => {
+    let refPath = (req.params as Record<string, string>).path;
+    if (!refPath.startsWith("/")) refPath = "/" + refPath;
+    if (!fs.existsSync(refPath)) { res.status(404).json({ error: "Reference not found" }); return; }
+
+    try {
+      const content = fs.readFileSync(refPath, "utf-8");
+      res.json({ name: path.basename(refPath), content, path: refPath });
+    } catch (e: unknown) {
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.get("/api/search", (req, res) => {
+    const query = (req.query.q as string) || "";
+    const results = index.search(query).map((r) => ({
+      name: r.name,
+      description: r.description,
+      path: r.path,
+      source_type: r.sourceType,
+      source_name: r.sourceName,
+      snippet: r.snippet,
+      structural_tags: r.structuralTags,
+    }));
+    res.json(results);
+  });
+
+  app.get("/api/graph", (_req, res) => {
+    const graph = index.getGraph();
+    res.json({
+      nodes: graph.nodes.map((n) => ({
+        id: n.id,
+        name: n.name,
+        source_type: n.sourceType,
+        source_name: n.sourceName,
+        word_count: n.wordCount,
+        structural_tags: n.structuralTags,
+      })),
+      edges: graph.edges,
+    });
+  });
+
+  app.get("/api/skill-tree/*path", (req, res) => {
+    let dirPath = (req.params as Record<string, string>).path;
+    if (!dirPath.startsWith("/")) dirPath = "/" + dirPath;
+    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+      res.status(404).json({ error: "Directory not found" });
+      return;
+    }
+    res.json({ root: dirPath, tree: buildTree(dirPath) });
+  });
+
+  app.get("/api/health/*path", (req, res) => {
+    let skillPath = (req.params as Record<string, string>).path;
+    if (!skillPath.startsWith("/")) skillPath = "/" + skillPath;
+    const health = index.getHealth(skillPath);
+    if (!health) { res.status(404).json({ error: "Skill not found in index" }); return; }
+    res.json(toSnakeHealth(health));
+  });
+
+  return app;
+}
+
+function toSnakeHealth(h: HealthInfo) {
+  return {
+    mtime: h.mtime,
+    mtime_iso: h.mtimeIso,
+    age_days: h.ageDays,
+    word_count: h.wordCount,
+    completeness_gaps: h.completenessGaps,
+    tool_count: h.toolCount,
+    cross_ref_count: h.crossRefCount,
+    structural_tags: h.structuralTags,
+  };
+}
