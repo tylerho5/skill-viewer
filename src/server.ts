@@ -7,6 +7,12 @@ import type { HealthInfo } from "./types.js";
 
 declare const __dirname: string;
 
+function extractWildcard(params: Record<string, unknown>): string {
+  const val = params.path;
+  const raw = Array.isArray(val) ? val.join("/") : String(val);
+  return raw.startsWith("/") ? raw : "/" + raw;
+}
+
 export function createApp(index: SkillIndex) {
   const app = express();
 
@@ -40,8 +46,7 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/skill/*path", (req, res) => {
-    let skillPath = (req.params as Record<string, string>).path;
-    if (!skillPath.startsWith("/")) skillPath = "/" + skillPath;
+    const skillPath = extractWildcard(req.params as Record<string, unknown>);
     if (!fs.existsSync(skillPath)) { res.status(404).json({ error: "Skill not found" }); return; }
 
     try {
@@ -77,8 +82,7 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/reference/*path", (req, res) => {
-    let refPath = (req.params as Record<string, string>).path;
-    if (!refPath.startsWith("/")) refPath = "/" + refPath;
+    const refPath = extractWildcard(req.params as Record<string, unknown>);
     if (!fs.existsSync(refPath)) { res.status(404).json({ error: "Reference not found" }); return; }
 
     try {
@@ -119,8 +123,7 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/skill-tree/*path", (req, res) => {
-    let dirPath = (req.params as Record<string, string>).path;
-    if (!dirPath.startsWith("/")) dirPath = "/" + dirPath;
+    const dirPath = extractWildcard(req.params as Record<string, unknown>);
     if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
       res.status(404).json({ error: "Directory not found" });
       return;
@@ -129,8 +132,7 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/health/*path", (req, res) => {
-    let skillPath = (req.params as Record<string, string>).path;
-    if (!skillPath.startsWith("/")) skillPath = "/" + skillPath;
+    const skillPath = extractWildcard(req.params as Record<string, unknown>);
     const health = index.getHealth(skillPath);
     if (!health) { res.status(404).json({ error: "Skill not found in index" }); return; }
     res.json(toSnakeHealth(health));
