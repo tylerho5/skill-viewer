@@ -1004,13 +1004,15 @@
             return res.json();
         }
 
+        function encodePathForUrl(p) { return p.split('/').map(s => encodeURIComponent(s)).join('/'); }
+
         async function fetchSkill(skillPath) {
-            const res = await fetch(`/api/skill/${encodeURIComponent(skillPath)}`);
+            const res = await fetch(`/api/skill/${encodePathForUrl(skillPath)}`);
             return res.json();
         }
 
         async function fetchReference(refPath) {
-            const res = await fetch(`/api/reference/${encodeURIComponent(refPath)}`);
+            const res = await fetch(`/api/reference/${encodePathForUrl(refPath)}`);
             return res.json();
         }
 
@@ -1025,7 +1027,7 @@
             for (const p of sources.plugins) {
                 totalGlobal++;
                 globalHtml += `
-                    <div class="source-item" data-path="${p.path}" data-type="plugin">
+                    <div class="source-item" data-path="${escapeHtml(p.path)}" data-type="plugin">
                         <div class="name">${escapeHtml(p.name)}<span class="source-type-label">plugin</span></div>
                         <div class="path">${p.count} skills · v${p.version}</div>
                     </div>`;
@@ -1033,7 +1035,7 @@
             for (const c of sources.custom) {
                 totalGlobal++;
                 globalHtml += `
-                    <div class="source-item" data-path="${c.path}" data-type="custom">
+                    <div class="source-item" data-path="${escapeHtml(c.path)}" data-type="custom">
                         <div class="name">${escapeHtml(c.name)}<span class="source-type-label">custom</span></div>
                         <div class="path">${c.count} skills</div>
                     </div>`;
@@ -1041,7 +1043,7 @@
             for (const c of sources.commands) {
                 totalGlobal++;
                 globalHtml += `
-                    <div class="source-item" data-path="${c.path}" data-type="commands">
+                    <div class="source-item" data-path="${escapeHtml(c.path)}" data-type="commands">
                         <div class="name">${escapeHtml(c.name)}<span class="source-type-label">cmd</span></div>
                         <div class="path">${c.count} commands</div>
                     </div>`;
@@ -1056,7 +1058,7 @@
             projectsCount.textContent = projectCount;
             if (projectCount > 0) {
                 projectItems.innerHTML = sources.projects.map(p => `
-                    <div class="source-item" data-path="${p.path}" data-type="project">
+                    <div class="source-item" data-path="${escapeHtml(p.path)}" data-type="project">
                         <div class="name">${escapeHtml(p.name)}</div>
                         <div class="path">${p.commandCount + p.skillCount} items</div>
                         <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" title="Remove">✕</button>
@@ -1124,14 +1126,14 @@
             if (skill.structural_tags) {
                 skill.structural_tags.forEach(tag => {
                     const label = tag.replace('has-', '').replace('-', ' ');
-                    badges += `<span class="badge tag">${label}</span>`;
+                    badges += `<span class="badge tag">${escapeHtml(label)}</span>`;
                 });
             }
 
             if (skill.health.completeness_gaps) {
                 skill.health.completeness_gaps.forEach(gap => {
                     const label = gap.replace('-', ' ');
-                    badges += `<span class="badge gap">${label}</span>`;
+                    badges += `<span class="badge gap">${escapeHtml(label)}</span>`;
                 });
             }
 
@@ -1154,12 +1156,12 @@
             skillsList.innerHTML = filtered.map(s => {
                 const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
                 return `
-                <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                <div class="skill-item" data-path="${escapeHtml(s.path)}" data-tree-dir="${escapeHtml(treeDir)}">
                     <div class="skill-header">
                         <span class="skill-toggle">&#9654;</span>
                         <div class="skill-info">
-                            <div class="name">${s.name}</div>
-                            <div class="description">${s.description || 'No description'}</div>
+                            <div class="name">${escapeHtml(s.name)}</div>
+                            <div class="description">${escapeHtml(s.description || 'No description')}</div>
                             ${getHealthBadges(s)}
                         </div>
                     </div>
@@ -1201,7 +1203,7 @@
             tagFiltersEl.innerHTML = tags.map(([tag, count]) => {
                 const label = tag.replace('has-', '').replace('tool:', '');
                 const isActive = activeTagFilters.has(tag);
-                return `<span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${tag}">${label} (${count})</span>`;
+                return `<span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${escapeHtml(tag)}">${escapeHtml(label)} (${count})</span>`;
             }).join('');
         }
 
@@ -1227,7 +1229,7 @@
                             treeContainer.innerHTML = '<div class="loading" style="padding:8px;font-size:12px;">Loading...</div>';
                             try {
                                 const dirPath = el.dataset.treeDir;
-                                const res = await fetch(`/api/skill-tree/${encodeURIComponent(dirPath)}`);
+                                const res = await fetch(`/api/skill-tree/${encodePathForUrl(dirPath)}`);
                                 const data = await res.json();
                                 if (data.tree && data.tree.length > 0) {
                                     treeContainer.innerHTML = renderFileTree(data.tree);
@@ -1322,12 +1324,12 @@
                 skillsList.innerHTML = filtered.map(s => {
                     const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
                     return `
-                    <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                    <div class="skill-item" data-path="${escapeHtml(s.path)}" data-tree-dir="${escapeHtml(treeDir)}">
                         <div class="skill-header">
                             <span class="skill-toggle">&#9654;</span>
                             <div class="skill-info">
-                                <div class="name">${s.name}</div>
-                                <div class="description">${s.description || 'No description'}</div>
+                                <div class="name">${escapeHtml(s.name)}</div>
+                                <div class="description">${escapeHtml(s.description || 'No description')}</div>
                                 ${getHealthBadges(s)}
                             </div>
                         </div>
@@ -1377,9 +1379,9 @@
             detailPanel.innerHTML = `
                 <div class="detail-content">
                     <div class="detail-header">
-                        <h2>${skill.name}</h2>
-                        <div class="description">${skill.description || 'No description'}</div>
-                        <div class="path">${skill.path}</div>
+                        <h2>${escapeHtml(skill.name)}</h2>
+                        <div class="description">${escapeHtml(skill.description || 'No description')}</div>
+                        <div class="path">${escapeHtml(skill.path)}</div>
                     </div>
 
                     <div class="section-title">Metadata</div>
@@ -1430,10 +1432,10 @@
                 if (entry.type === 'directory') {
                     const childrenId = `tree-${entry.path.replace(/[^a-zA-Z0-9]/g, '-')}`;
                     return `
-                        <div class="file-tree-item directory" data-tree-path="${entry.path}" data-children-id="${childrenId}">
+                        <div class="file-tree-item directory" data-tree-path="${escapeHtml(entry.path)}" data-children-id="${childrenId}">
                             ${indent}
                             <span class="icon">${icon}</span>
-                            <span class="name">${entry.name}/</span>
+                            <span class="name">${escapeHtml(entry.name)}/</span>
                         </div>
                         <div class="file-tree-children" id="${childrenId}">
                             ${entry.children ? renderFileTree(entry.children, depth + 1) : ''}
@@ -1441,10 +1443,10 @@
                     `;
                 } else {
                     return `
-                        <div class="file-tree-item file" data-tree-file-path="${entry.path}" data-ext="${entry.extension || ''}">
+                        <div class="file-tree-item file" data-tree-file-path="${escapeHtml(entry.path)}" data-ext="${escapeHtml(entry.extension || '')}">
                             ${indent}
                             <span class="icon">${icon}</span>
-                            <span class="name">${entry.name}</span>
+                            <span class="name">${escapeHtml(entry.name)}</span>
                             ${sizeStr}
                         </div>
                     `;
@@ -1510,7 +1512,7 @@
                 renderTagFilters(currentSkills);
                 statusEl.textContent = `${currentSkills.length} skills loaded`;
             } catch (err) {
-                skillsList.innerHTML = `<div class="error">Error loading skills: ${err.message}</div>`;
+                skillsList.innerHTML = `<div class="error">Error loading skills: ${escapeHtml(err.message)}</div>`;
             }
         }
 
@@ -1530,7 +1532,7 @@
                 renderSkillDetail(skill);
                 statusEl.textContent = `Viewing: ${skill.name}`;
             } catch (err) {
-                detailPanel.innerHTML = `<div class="error">Error loading skill: ${err.message}</div>`;
+                detailPanel.innerHTML = `<div class="error">Error loading skill: ${escapeHtml(err.message)}</div>`;
             }
         }
 
@@ -1609,7 +1611,7 @@
                     highlightDetailPanel();
                     statusEl.textContent = `Viewing: ${ref.name}`;
                 } catch (err) {
-                    detailPanel.innerHTML = `<div class="error">Error loading reference: ${err.message}</div>`;
+                    detailPanel.innerHTML = `<div class="error">Error loading reference: ${escapeHtml(err.message)}</div>`;
                 }
             }
         });
@@ -1630,7 +1632,7 @@
                     const results = await res.json();
                     renderGlobalSearchResults(results);
                 } catch (err) {
-                    globalSearchResults.innerHTML = `<div class="search-result-item"><div class="result-name">Error: ${err.message}</div></div>`;
+                    globalSearchResults.innerHTML = `<div class="search-result-item"><div class="result-name">Error: ${escapeHtml(err.message)}</div></div>`;
                     globalSearchResults.classList.add('active');
                 }
             }, 250);
@@ -1641,7 +1643,7 @@
                 globalSearchResults.innerHTML = '<div class="search-result-item"><div class="result-name" style="color: var(--text-muted)">No results</div></div>';
             } else {
                 globalSearchResults.innerHTML = results.slice(0, 20).map(r => `
-                    <div class="search-result-item" data-path="${r.path}">
+                    <div class="search-result-item" data-path="${escapeHtml(r.path)}">
                         <div class="result-name">${escapeHtml(r.name)}</div>
                         <div class="result-source">${escapeHtml(r.source_name)} &middot; ${r.source_type}</div>
                         <div class="result-snippet">${escapeHtml(r.snippet)}</div>
@@ -1666,7 +1668,7 @@
                 currentSkill = item.dataset.path;
                 statusEl.textContent = `Viewing: ${skill.name}`;
             } catch (err) {
-                detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+                detailPanel.innerHTML = `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
             }
         });
 
@@ -1706,7 +1708,7 @@
                     const res = await fetch('/api/graph');
                     graphData = await res.json();
                 } catch (err) {
-                    graphOverlay.innerHTML = `<div class="error" style="margin:20px">Error loading graph: ${err.message}</div>`;
+                    graphOverlay.innerHTML = `<div class="error" style="margin:20px">Error loading graph: ${escapeHtml(err.message)}</div>`;
                     return;
                 }
             }
@@ -1803,7 +1805,7 @@
                     currentSkill = d.id;
                     statusEl.textContent = `Viewing: ${skill.name}`;
                 } catch (err) {
-                    detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+                    detailPanel.innerHTML = `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
                 }
             });
 
@@ -1867,7 +1869,7 @@
                 statusEl.textContent = 'Ready';
             } catch (err) {
                 statusEl.textContent = `Error: ${err.message}`;
-                sourcesPanel.innerHTML = `<div class="error">Error loading sources: ${err.message}</div>`;
+                sourcesPanel.innerHTML = `<div class="error">Error loading sources: ${escapeHtml(err.message)}</div>`;
             }
         }
 

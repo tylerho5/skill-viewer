@@ -83,13 +83,17 @@ export class SkillIndex {
     const claudeDir = path.join(projectDir, ".claude");
     if (!exists(claudeDir) || !isDir(claudeDir)) return false;
     this.projectDirs.add(projectDir);
-    this.build();
+    this.indexProjectDir(projectDir);
     return true;
   }
 
   removeProjectDir(projectDir: string): void {
     this.projectDirs.delete(projectDir);
-    this.build();
+    const claudeDir = path.join(projectDir, ".claude");
+    this.skills = this.skills.filter((s) => !s.path.startsWith(claudeDir + path.sep));
+    for (const [p] of this.byPath) {
+      if (p.startsWith(claudeDir + path.sep)) this.byPath.delete(p);
+    }
   }
 
   getProjectDirs(): string[] {
@@ -394,68 +398,35 @@ export function getSources(index?: SkillIndex): SourceInfo {
 
 // --- Skills list for a source ---
 
-function scanCommandsDir(dir: string, skills: SkillSummary[]): void {
-  if (!exists(dir) || !isDir(dir)) return;
-  for (const name of readdir(dir)) {
-    const filePath = path.join(dir, name);
-    if (!isFile(filePath) || !name.endsWith(".md")) continue;
-    try {
-      const content = readText(filePath);
-      const fm = parseFrontmatter(content);
-      skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: filePath, filename: name });
-    } catch {
-      skills.push({ name: name.replace(/\.md$/, ""), description: "", path: filePath, filename: name });
-    }
-  }
-}
-
-function scanSkillsDir(dir: string, skills: SkillSummary[]): void {
-  if (!exists(dir) || !isDir(dir)) return;
-  for (const name of readdir(dir)) {
-    const itemPath = path.join(dir, name);
-    if (isDir(itemPath)) {
-      const skillFile = path.join(itemPath, "SKILL.md");
-      if (exists(skillFile)) {
-        try {
-          const content = readText(skillFile);
-          const fm = parseFrontmatter(content);
-          skills.push({ name: fm.name || name, description: fm.description || "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
-        } catch {
-          skills.push({ name, description: "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
-        }
-      }
-    } else if (isFile(itemPath) && name.endsWith(".md")) {
-      try {
-        const content = readText(itemPath);
-        const fm = parseFrontmatter(content);
-        skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: itemPath, filename: name });
-      } catch {
-        skills.push({ name: name.replace(/\.md$/, ""), description: "", path: itemPath, filename: name });
-      }
-    }
-  }
+function indexedToSummary(skill: IndexedSkill): SkillSummary {
+  return {
+    name: skill.name,
+    description: skill.description,
+    path: skill.path,
+    filename: skill.filename,
+    skillDir: skill.skillDir,
+  };
 }
 
 export function getSkillsForSource(sourcePath: string, index: SkillIndex): SkillSummary[] {
-  const skills: SkillSummary[] = [];
-
   const isProjectClaude = path.basename(sourcePath) === ".claude" && (exists(path.join(sourcePath, "commands")) || exists(path.join(sourcePath, "skills")));
 
+  let matched: IndexedSkill[];
   if (isProjectClaude) {
-    scanCommandsDir(path.join(sourcePath, "commands"), skills);
-    scanSkillsDir(path.join(sourcePath, "skills"), skills);
-  } else if (sourcePath.includes("commands")) {
-    scanCommandsDir(COMMANDS_DIR, skills);
-  } else if (exists(sourcePath) && isDir(sourcePath)) {
-    scanSkillsDir(sourcePath, skills);
+    matched = index.skills.filter((s) => s.path.startsWith(sourcePath + path.sep));
+  } else if (sourcePath === COMMANDS_DIR) {
+    matched = index.skills.filter((s) => s.path.startsWith(COMMANDS_DIR + path.sep));
+  } else {
+    matched = index.skills.filter((s) => s.path.startsWith(sourcePath + path.sep));
   }
 
+  const skills: SkillSummary[] = matched.map(indexedToSummary);
   skills.sort((a, b) => a.name.localeCompare(b.name));
 
   for (const s of skills) {
+    s.health = index.getHealth(s.path) ?? undefined;
     const indexed = index.get(s.path);
     if (indexed) {
-      s.health = index.getHealth(s.path) ?? undefined;
       s.toolReferences = indexed.toolReferences;
       s.structuralTags = indexed.structuralTags;
     }
