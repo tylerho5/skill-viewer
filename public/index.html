@@ -221,6 +221,20 @@
             background: var(--bg-tertiary);
         }
 
+        .source-type-label {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            vertical-align: middle;
+            margin-left: 6px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+        }
+
         /* Skills Panel */
         .skills-panel {
             display: flex;
@@ -886,26 +900,13 @@
     <div class="container">
         <!-- Sources Panel -->
         <div class="panel sources-panel" id="sources-panel">
-            <div class="section" id="plugins-section">
+            <div class="section" id="global-section">
                 <div class="section-header">
                     <span class="toggle">▼</span>
-                    Plugins
+                    Global
+                    <span class="count" id="global-count">0</span>
                 </div>
-                <div class="section-items"></div>
-            </div>
-            <div class="section" id="custom-section">
-                <div class="section-header">
-                    <span class="toggle">▼</span>
-                    Custom
-                </div>
-                <div class="section-items"></div>
-            </div>
-            <div class="section" id="commands-section">
-                <div class="section-header">
-                    <span class="toggle">▼</span>
-                    Commands
-                </div>
-                <div class="section-items"></div>
+                <div class="section-items" id="global-items"></div>
             </div>
             <div class="section" id="projects-section">
                 <div class="section-header">
@@ -914,6 +915,7 @@
                     <span class="count" id="projects-count">0</span>
                 </div>
                 <div class="section-items">
+                    <div id="project-items"></div>
                     <div class="project-add-form">
                         <div class="project-add-row">
                             <input type="text" id="project-dir-input" placeholder="/path/to/project">
@@ -921,7 +923,6 @@
                         </div>
                         <div class="project-error" id="project-error"></div>
                     </div>
-                    <div id="project-items"></div>
                 </div>
             </div>
         </div>
@@ -1015,68 +1016,45 @@
 
         // Render functions
         function renderSources(sources) {
-            // Plugins
-            const pluginsSection = document.getElementById('plugins-section');
-            const pluginsItems = pluginsSection.querySelector('.section-items');
-            if (sources.plugins.length > 0) {
-                pluginsSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Plugins
-                    <span class="count">${sources.plugins.length}</span>
-                `;
-                pluginsItems.innerHTML = sources.plugins.map(p => `
+            // Global section: plugins + custom + commands in one list
+            const globalItems = document.getElementById('global-items');
+            const globalCount = document.getElementById('global-count');
+            let globalHtml = '';
+            let totalGlobal = 0;
+
+            for (const p of sources.plugins) {
+                totalGlobal++;
+                globalHtml += `
                     <div class="source-item" data-path="${p.path}" data-type="plugin">
-                        <div class="name">${p.name}</div>
+                        <div class="name">${escapeHtml(p.name)}<span class="source-type-label">plugin</span></div>
                         <div class="path">${p.count} skills · v${p.version}</div>
-                    </div>
-                `).join('');
-            } else {
-                pluginsSection.style.display = 'none';
+                    </div>`;
             }
-
-            // Custom
-            const customSection = document.getElementById('custom-section');
-            const customItems = customSection.querySelector('.section-items');
-            if (sources.custom.length > 0) {
-                customSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Custom
-                    <span class="count">${sources.custom[0].count}</span>
-                `;
-                customItems.innerHTML = sources.custom.map(c => `
+            for (const c of sources.custom) {
+                totalGlobal++;
+                globalHtml += `
                     <div class="source-item" data-path="${c.path}" data-type="custom">
-                        <div class="name">${c.name}</div>
+                        <div class="name">${escapeHtml(c.name)}<span class="source-type-label">custom</span></div>
                         <div class="path">${c.count} skills</div>
-                    </div>
-                `).join('');
-            } else {
-                customSection.style.display = 'none';
+                    </div>`;
             }
-
-            // Commands
-            const commandsSection = document.getElementById('commands-section');
-            const commandsItems = commandsSection.querySelector('.section-items');
-            if (sources.commands.length > 0) {
-                commandsSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Commands
-                    <span class="count">${sources.commands[0].count}</span>
-                `;
-                commandsItems.innerHTML = sources.commands.map(c => `
+            for (const c of sources.commands) {
+                totalGlobal++;
+                globalHtml += `
                     <div class="source-item" data-path="${c.path}" data-type="commands">
-                        <div class="name">${c.name}</div>
+                        <div class="name">${escapeHtml(c.name)}<span class="source-type-label">cmd</span></div>
                         <div class="path">${c.count} commands</div>
-                    </div>
-                `).join('');
-            } else {
-                commandsSection.style.display = 'none';
+                    </div>`;
             }
+            globalCount.textContent = totalGlobal;
+            globalItems.innerHTML = globalHtml;
 
-            // Projects
+            // Projects section
             const projectItems = document.getElementById('project-items');
             const projectsCount = document.getElementById('projects-count');
-            if (sources.projects && sources.projects.length > 0) {
-                projectsCount.textContent = sources.projects.length;
+            const projectCount = sources.projects ? sources.projects.length : 0;
+            projectsCount.textContent = projectCount;
+            if (projectCount > 0) {
                 projectItems.innerHTML = sources.projects.map(p => `
                     <div class="source-item" data-path="${p.path}" data-type="project">
                         <div class="name">${escapeHtml(p.name)}</div>
@@ -1085,11 +1063,10 @@
                     </div>
                 `).join('');
             } else {
-                projectsCount.textContent = '0';
                 projectItems.innerHTML = '';
             }
 
-            // Add click handlers
+            // Click handlers
             document.querySelectorAll('.source-item').forEach(el => {
                 el.addEventListener('click', (e) => {
                     if (e.target.classList.contains('remove-project-btn')) return;
@@ -1112,7 +1089,7 @@
                 });
             });
 
-            // Add toggle handlers
+            // Toggle handlers
             document.querySelectorAll('.section-header').forEach(el => {
                 el.addEventListener('click', () => {
                     const items = el.nextElementSibling;
