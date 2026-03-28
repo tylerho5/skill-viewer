@@ -24,8 +24,25 @@ export function createApp(index: SkillIndex) {
 
   // --- API Routes ---
 
+  app.use(express.json());
+
   app.get("/api/sources", (_req, res) => {
-    res.json(getSources());
+    res.json(getSources(index));
+  });
+
+  app.post("/api/projects", (req, res) => {
+    const dir = req.body?.path as string | undefined;
+    if (!dir) { res.status(400).json({ error: "Missing path" }); return; }
+    const ok = index.addProjectDir(dir);
+    if (!ok) { res.status(400).json({ error: "No .claude/ directory found at that path" }); return; }
+    res.json({ ok: true, sources: getSources(index) });
+  });
+
+  app.delete("/api/projects", (req, res) => {
+    const dir = req.body?.path as string | undefined;
+    if (!dir) { res.status(400).json({ error: "Missing path" }); return; }
+    index.removeProjectDir(dir);
+    res.json({ ok: true, sources: getSources(index) });
   });
 
   app.get("/api/skills", (req, res) => {

@@ -66,6 +66,7 @@ function findLatestVersionDir(pluginDir: string): string | null {
 export class SkillIndex {
   skills: IndexedSkill[] = [];
   private byPath = new Map<string, IndexedSkill>();
+  private projectDirs = new Set<string>();
 
   build(): void {
     this.skills = [];
@@ -73,6 +74,26 @@ export class SkillIndex {
     this.indexPlugins();
     this.indexCustomSkills();
     this.indexCommands();
+    for (const dir of this.projectDirs) {
+      this.indexProjectDir(dir);
+    }
+  }
+
+  addProjectDir(projectDir: string): boolean {
+    const claudeDir = path.join(projectDir, ".claude");
+    if (!exists(claudeDir) || !isDir(claudeDir)) return false;
+    this.projectDirs.add(projectDir);
+    this.build();
+    return true;
+  }
+
+  removeProjectDir(projectDir: string): void {
+    this.projectDirs.delete(projectDir);
+    this.build();
+  }
+
+  getProjectDirs(): string[] {
+    return [...this.projectDirs];
   }
 
   private extractCrossReferences(content: string): string[] {
@@ -188,6 +209,36 @@ export class SkillIndex {
     }
   }
 
+  private indexProjectDir(projectDir: string): void {
+    const claudeDir = path.join(projectDir, ".claude");
+    const projectName = path.basename(projectDir);
+
+    const cmdsDir = path.join(claudeDir, "commands");
+    if (exists(cmdsDir) && isDir(cmdsDir)) {
+      for (const name of readdir(cmdsDir)) {
+        const filePath = path.join(cmdsDir, name);
+        if (isFile(filePath) && name.endsWith(".md")) {
+          this.indexSkill(filePath, "project", projectName, cmdsDir);
+        }
+      }
+    }
+
+    const skillsDir = path.join(claudeDir, "skills");
+    if (exists(skillsDir) && isDir(skillsDir)) {
+      for (const name of readdir(skillsDir)) {
+        const itemPath = path.join(skillsDir, name);
+        if (isDir(itemPath)) {
+          const skillFile = path.join(itemPath, "SKILL.md");
+          if (exists(skillFile)) {
+            this.indexSkill(skillFile, "project", projectName, itemPath);
+          }
+        } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
+          this.indexSkill(itemPath, "project", projectName, skillsDir);
+        }
+      }
+    }
+  }
+
   get(skillPath: string): IndexedSkill | undefined {
     return this.byPath.get(skillPath);
   }
@@ -283,8 +334,8 @@ export class SkillIndex {
 
 // --- Sources scanning (not indexed, direct from disk) ---
 
-export function getSources(): SourceInfo {
-  const sources: SourceInfo = { plugins: [], custom: [], commands: [] };
+export function getSources(index?: SkillIndex): SourceInfo {
+  const sources: SourceInfo = { plugins: [], custom: [], commands: [], projects: [] };
 
   if (exists(PLUGINS_DIR)) {
     for (const pluginName of readdir(PLUGINS_DIR)) {
@@ -321,52 +372,82 @@ export function getSources(): SourceInfo {
     }
   }
 
+  if (index) {
+    for (const projectDir of index.getProjectDirs()) {
+      const claudeDir = path.join(projectDir, ".claude");
+      const cmdsDir = path.join(claudeDir, "commands");
+      const skillsDir = path.join(claudeDir, "skills");
+      const commandCount = exists(cmdsDir) ? readdir(cmdsDir).filter((n) => n.endsWith(".md") && isFile(path.join(cmdsDir, n))).length : 0;
+      const skillCount = exists(skillsDir) ? readdir(skillsDir).filter((n) => isDir(path.join(skillsDir, n)) || (n.endsWith(".md") && isFile(path.join(skillsDir, n)))).length : 0;
+      sources.projects.push({
+        name: path.basename(projectDir),
+        path: claudeDir,
+        projectDir,
+        commandCount,
+        skillCount,
+      });
+    }
+  }
+
   return sources;
 }
 
 // --- Skills list for a source ---
 
+function scanCommandsDir(dir: string, skills: SkillSummary[]): void {
+  if (!exists(dir) || !isDir(dir)) return;
+  for (const name of readdir(dir)) {
+    const filePath = path.join(dir, name);
+    if (!isFile(filePath) || !name.endsWith(".md")) continue;
+    try {
+      const content = readText(filePath);
+      const fm = parseFrontmatter(content);
+      skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: filePath, filename: name });
+    } catch {
+      skills.push({ name: name.replace(/\.md$/, ""), description: "", path: filePath, filename: name });
+    }
+  }
+}
+
+function scanSkillsDir(dir: string, skills: SkillSummary[]): void {
+  if (!exists(dir) || !isDir(dir)) return;
+  for (const name of readdir(dir)) {
+    const itemPath = path.join(dir, name);
+    if (isDir(itemPath)) {
+      const skillFile = path.join(itemPath, "SKILL.md");
+      if (exists(skillFile)) {
+        try {
+          const content = readText(skillFile);
+          const fm = parseFrontmatter(content);
+          skills.push({ name: fm.name || name, description: fm.description || "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
+        } catch {
+          skills.push({ name, description: "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
+        }
+      }
+    } else if (isFile(itemPath) && name.endsWith(".md")) {
+      try {
+        const content = readText(itemPath);
+        const fm = parseFrontmatter(content);
+        skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: itemPath, filename: name });
+      } catch {
+        skills.push({ name: name.replace(/\.md$/, ""), description: "", path: itemPath, filename: name });
+      }
+    }
+  }
+}
+
 export function getSkillsForSource(sourcePath: string, index: SkillIndex): SkillSummary[] {
   const skills: SkillSummary[] = [];
 
-  if (sourcePath.includes("commands")) {
-    if (exists(COMMANDS_DIR)) {
-      for (const name of readdir(COMMANDS_DIR)) {
-        const filePath = path.join(COMMANDS_DIR, name);
-        if (!isFile(filePath) || !name.endsWith(".md")) continue;
-        try {
-          const content = readText(filePath);
-          const fm = parseFrontmatter(content);
-          skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: filePath, filename: name });
-        } catch {
-          skills.push({ name: name.replace(/\.md$/, ""), description: "", path: filePath, filename: name });
-        }
-      }
-    }
+  const isProjectClaude = path.basename(sourcePath) === ".claude" && (exists(path.join(sourcePath, "commands")) || exists(path.join(sourcePath, "skills")));
+
+  if (isProjectClaude) {
+    scanCommandsDir(path.join(sourcePath, "commands"), skills);
+    scanSkillsDir(path.join(sourcePath, "skills"), skills);
+  } else if (sourcePath.includes("commands")) {
+    scanCommandsDir(COMMANDS_DIR, skills);
   } else if (exists(sourcePath) && isDir(sourcePath)) {
-    for (const name of readdir(sourcePath)) {
-      const itemPath = path.join(sourcePath, name);
-      if (isDir(itemPath)) {
-        const skillFile = path.join(itemPath, "SKILL.md");
-        if (exists(skillFile)) {
-          try {
-            const content = readText(skillFile);
-            const fm = parseFrontmatter(content);
-            skills.push({ name: fm.name || name, description: fm.description || "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
-          } catch {
-            skills.push({ name, description: "", path: skillFile, filename: "SKILL.md", skillDir: itemPath });
-          }
-        }
-      } else if (isFile(itemPath) && name.endsWith(".md")) {
-        try {
-          const content = readText(itemPath);
-          const fm = parseFrontmatter(content);
-          skills.push({ name: fm.name || name.replace(/\.md$/, ""), description: fm.description || "", path: itemPath, filename: name });
-        } catch {
-          skills.push({ name: name.replace(/\.md$/, ""), description: "", path: itemPath, filename: name });
-        }
-      }
-    }
+    scanSkillsDir(sourcePath, skills);
   }
 
   skills.sort((a, b) => a.name.localeCompare(b.name));

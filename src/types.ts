@@ -2,7 +2,7 @@ export interface IndexedSkill {
   name: string;
   description: string;
   path: string;
-  sourceType: "plugin" | "custom" | "command";
+  sourceType: "plugin" | "custom" | "command" | "project";
   sourceName: string;
   filename: string;
   content: string;
@@ -77,10 +77,19 @@ export interface TreeEntry {
   children?: TreeEntry[];
 }
 
+export interface ProjectSource {
+  name: string;
+  path: string;
+  projectDir: string;
+  commandCount: number;
+  skillCount: number;
+}
+
 export interface SourceInfo {
   plugins: PluginSource[];
   custom: CustomSource[];
   commands: CommandSource[];
+  projects: ProjectSource[];
 }
 
 export interface PluginSource {

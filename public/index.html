@@ -116,6 +116,7 @@
         }
 
         .sources-panel .source-item {
+            position: relative;
             padding: 10px 16px;
             padding-left: 28px;
             cursor: pointer;
@@ -831,6 +832,23 @@
                 </div>
                 <div class="section-items"></div>
             </div>
+            <div class="section" id="projects-section">
+                <div class="section-header">
+                    <span class="toggle">▼</span>
+                    Projects
+                    <span class="count" id="projects-count">0</span>
+                </div>
+                <div class="section-items">
+                    <div style="padding: 6px 12px;">
+                        <div style="display: flex; gap: 4px;">
+                            <input type="text" id="project-dir-input" placeholder="/path/to/project" style="flex:1; padding: 4px 8px; border: 1px solid #555; border-radius: 4px; background: #2a2a2a; color: #e0e0e0; font-size: 12px;">
+                            <button id="add-project-btn" style="padding: 4px 10px; border: none; border-radius: 4px; background: #4a9eff; color: #fff; cursor: pointer; font-size: 12px; white-space: nowrap;">Add</button>
+                        </div>
+                        <div id="project-error" style="color: #ff6b6b; font-size: 11px; margin-top: 4px; display: none;"></div>
+                    </div>
+                    <div id="project-items"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Skills Panel -->
@@ -979,9 +997,44 @@
                 commandsSection.style.display = 'none';
             }
 
+            // Projects
+            const projectItems = document.getElementById('project-items');
+            const projectsCount = document.getElementById('projects-count');
+            if (sources.projects && sources.projects.length > 0) {
+                projectsCount.textContent = sources.projects.length;
+                projectItems.innerHTML = sources.projects.map(p => `
+                    <div class="source-item" data-path="${p.path}" data-type="project">
+                        <div class="name">${escapeHtml(p.name)}</div>
+                        <div class="path">${p.commandCount + p.skillCount} items · ${escapeHtml(p.projectDir)}</div>
+                        <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" style="position:absolute; right:8px; top:8px; background:none; border:none; color:#888; cursor:pointer; font-size:14px;" title="Remove">✕</button>
+                    </div>
+                `).join('');
+            } else {
+                projectsCount.textContent = '0';
+                projectItems.innerHTML = '';
+            }
+
             // Add click handlers
             document.querySelectorAll('.source-item').forEach(el => {
-                el.addEventListener('click', () => selectSource(el.dataset.path, el));
+                el.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('remove-project-btn')) return;
+                    selectSource(el.dataset.path, el);
+                });
+            });
+
+            // Remove project handlers
+            document.querySelectorAll('.remove-project-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const dir = btn.dataset.projectDir;
+                    const res = await fetch('/api/projects', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: dir }),
+                    });
+                    const data = await res.json();
+                    if (data.ok) renderSources(data.sources);
+                });
             });
 
             // Add toggle handlers
@@ -1723,6 +1776,36 @@
                 });
             svg.call(zoom);
         }
+
+        // Add project handler
+        document.getElementById('add-project-btn').addEventListener('click', async () => {
+            const input = document.getElementById('project-dir-input');
+            const errorEl = document.getElementById('project-error');
+            const dir = input.value.trim();
+            if (!dir) return;
+            errorEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: dir }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    errorEl.textContent = data.error;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                input.value = '';
+                renderSources(data.sources);
+            } catch (err) {
+                errorEl.textContent = err.message;
+                errorEl.style.display = 'block';
+            }
+        });
+        document.getElementById('project-dir-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('add-project-btn').click();
+        });
 
         // Initialize
         async function init() {
