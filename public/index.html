@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skills Viewer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #1a1a1a;
+            --text-secondary: #555555;
+            --text-muted: #888888;
+            --accent: #0066cc;
+            --accent-hover: #0052a3;
+            --border: #dddddd;
+            --success: #28a745;
+            --warning: #f0ad4e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--bg-tertiary);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        header .status {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 220px 320px 1fr;
+            height: calc(100vh - 49px);
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        .panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .panel::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+
+        .panel::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        /* Sources Panel */
+        .sources-panel .section {
+            padding: 12px 0;
+        }
+
+        .sources-panel .section-header {
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .sources-panel .section-header:hover {
+            color: var(--text-secondary);
+        }
+
+        .sources-panel .section-header .toggle {
+            font-size: 10px;
+        }
+
+        .sources-panel .section-header .count {
+            background: var(--border);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+        }
+
+        .sources-panel .source-item {
+            padding: 10px 16px;
+            padding-left: 28px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.15s ease;
+        }
+
+        .sources-panel .source-item:hover {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent);
+        }
+
+        .sources-panel .source-item.active {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent);
+        }
+
+        .sources-panel .source-item .name {
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .sources-panel .source-item .path {
+            font-size: 11px;
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Skills Panel */
+        .skills-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-box {
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .skills-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .skills-list .skill-item {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s ease;
+        }
+
+        .skills-list .skill-item .skill-header {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .skills-list .skill-item .skill-header:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .skills-list .skill-item.active .skill-header {
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--accent);
+        }
+
+        .skills-list .skill-item .skill-toggle {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            flex-shrink: 0;
+            width: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .skills-list .skill-item .skill-toggle:hover {
+            color: var(--accent);
+        }
+
+        .skills-list .skill-item .skill-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .skills-list .skill-item .name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .skills-list .skill-item .description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .skills-list .skill-item .filename {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .skills-list .skill-item .inline-file-tree {
+            display: none;
+            padding: 4px 16px 12px 36px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-tertiary);
+        }
+
+        .skills-list .skill-item .inline-file-tree.expanded {
+            display: block;
+        }
+
+        .skills-list .skill-item .inline-file-tree .file-tree-item {
+            padding: 4px 6px;
+            font-size: 12px;
+        }
+
+        .skills-list .skill-item .inline-file-tree .file-tree-item .size {
+            font-size: 10px;
+        }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        /* Detail Panel */
+        .detail-panel {
+            background: var(--bg-primary);
+            overflow-y: auto;
+        }
+
+        .detail-panel .empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .detail-content {
+            padding: 20px;
+        }
+
+        .detail-header {
+            margin-bottom: 20px;
+        }
+
+        .detail-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .detail-header .description {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .detail-header .path {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .frontmatter-table {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .frontmatter-row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            background: var(--bg-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+
+        .frontmatter-row .key {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .frontmatter-row .value {
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .content-preview {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        .content-preview pre {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .content-preview pre code.hljs {
+            background: transparent;
+            padding: 0;
+        }
+
+        .references-tree {
+            margin-bottom: 24px;
+        }
+
+        .reference-group {
+            margin-bottom: 16px;
+        }
+
+        .reference-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            cursor: pointer;
+        }
+
+        .reference-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .reference-item .icon {
+            margin-right: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .reference-item .name {
+            font-size: 13px;
+        }
+
+        .reference-dir {
+            margin-bottom: 8px;
+        }
+
+        .reference-dir-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+
+        .reference-dir-header:hover {
+            background: var(--bg-secondary);
+        }
+
+        .reference-dir-header .toggle {
+            margin-right: 8px;
+            font-size: 10px;
+        }
+
+        .reference-dir-header .name {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .reference-dir-children {
+            padding-left: 16px;
+        }
+
+        .file-tree {
+            margin-bottom: 24px;
+        }
+
+        .file-tree-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.1s ease;
+            font-size: 13px;
+        }
+
+        .file-tree-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .file-tree-item .indent {
+            display: inline-block;
+            width: 16px;
+            flex-shrink: 0;
+        }
+
+        .file-tree-item .icon {
+            margin-right: 6px;
+            font-size: 12px;
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
+        }
+
+        .file-tree-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-tree-item .size {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+
+        .file-tree-item.directory > .name {
+            font-weight: 500;
+        }
+
+        .file-tree-children {
+            display: none;
+        }
+
+        .file-tree-children.expanded {
+            display: block;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-primary);
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+        }
+
+        .modal-close {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 20px;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body pre {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-muted);
+        }
+
+        .error {
+            padding: 20px;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 8px;
+            color: #dc3545;
+        }
+
+        .global-search {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .global-search input {
+            width: 100%;
+            padding: 6px 12px 6px 28px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .global-search input:focus {
+            border-color: var(--accent);
+        }
+
+        .global-search .search-icon {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .global-search-results {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .global-search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-result-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item .result-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .search-result-item .result-source {
+            font-size: 11px;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .search-result-item .result-snippet {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .skill-item .badges {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            gap: 3px;
+        }
+
+        .badge.recency-fresh {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+        }
+
+        .badge.recency-aging {
+            background: rgba(240, 173, 78, 0.1);
+            color: #c89100;
+        }
+
+        .badge.recency-stale {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+
+        .badge.tag {
+            background: rgba(0, 102, 204, 0.08);
+            color: var(--accent);
+        }
+
+        .badge.gap {
+            background: rgba(220, 53, 69, 0.06);
+            color: #dc3545;
+        }
+
+        .tag-filters {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .tag-filter {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            cursor: pointer;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            transition: all 0.1s ease;
+        }
+
+        .tag-filter:hover {
+            border-color: var(--accent);
+        }
+
+        .tag-filter.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .graph-overlay {
+            display: none;
+            position: fixed;
+            top: 49px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.97);
+            z-index: 50;
+        }
+
+        .graph-overlay.active {
+            display: block;
+        }
+
+        .graph-overlay svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-overlay .graph-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .graph-overlay .graph-controls button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .graph-node {
+            cursor: pointer;
+        }
+
+        .graph-node circle {
+            stroke: var(--border);
+            stroke-width: 1.5px;
+        }
+
+        .graph-node text {
+            font-size: 10px;
+            fill: var(--text-primary);
+            pointer-events: none;
+        }
+
+        .graph-link {
+            stroke: var(--border);
+            stroke-opacity: 0.6;
+            fill: none;
+        }
+
+        .graph-link-arrow {
+            fill: var(--border);
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Skills Viewer</h1>
+        <div class="global-search">
+            <span class="search-icon">&#x1F50D;</span>
+            <input type="text" id="global-search-input" placeholder="Search all skills... (Cmd+K)">
+            <div class="global-search-results" id="global-search-results"></div>
+        </div>
+        <span class="status" id="status">Loading...</span>
+        <button id="graph-toggle" title="Dependency Graph" style="
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+        ">Graph</button>
+    </header>
+
+    <div class="container">
+        <!-- Sources Panel -->
+        <div class="panel sources-panel" id="sources-panel">
+            <div class="section" id="plugins-section">
+                <div class="section-header">
+                    <span class="toggle">▼</span>
+                    Plugins
+                </div>
+                <div class="section-items"></div>
+            </div>
+            <div class="section" id="custom-section">
+                <div class="section-header">
+                    <span class="toggle">▼</span>
+                    Custom
+                </div>
+                <div class="section-items"></div>
+            </div>
+            <div class="section" id="commands-section">
+                <div class="section-header">
+                    <span class="toggle">▼</span>
+                    Commands
+                </div>
+                <div class="section-items"></div>
+            </div>
+        </div>
+
+        <!-- Skills Panel -->
+        <div class="panel skills-panel" id="skills-panel">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search skills...">
+            </div>
+            <div class="tag-filters" id="tag-filters" style="display: none;"></div>
+            <div class="skills-list" id="skills-list">
+                <div class="empty-state">Select a source to view skills</div>
+            </div>
+        </div>
+
+        <!-- Detail Panel -->
+        <div class="panel detail-panel" id="detail-panel">
+            <div class="empty">Select a skill to view details</div>
+        </div>
+    </div>
+
+    <!-- Modal for reference files -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Reference File</h3>
+                <span class="modal-close" id="modal-close">×</span>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <pre id="modal-content"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="graph-overlay" id="graph-overlay">
+        <div class="graph-controls">
+            <button id="graph-close">Close</button>
+        </div>
+        <svg id="graph-svg"></svg>
+    </div>
+
+    <script>
+        // State
+        let sources = null;
+        let currentSource = null;
+        let currentSkills = [];
+        let currentSkill = null;
+
+
+        // DOM Elements
+        const statusEl = document.getElementById('status');
+        const sourcesPanel = document.getElementById('sources-panel');
+        const skillsList = document.getElementById('skills-list');
+        const detailPanel = document.getElementById('detail-panel');
+        const searchInput = document.getElementById('search-input');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContentEl = document.getElementById('modal-content');
+        const modalClose = document.getElementById('modal-close');
+        const globalSearchInput = document.getElementById('global-search-input');
+        const globalSearchResults = document.getElementById('global-search-results');
+        let searchDebounce = null;
+        const graphToggle = document.getElementById('graph-toggle');
+        const graphOverlay = document.getElementById('graph-overlay');
+        const graphClose = document.getElementById('graph-close');
+        const graphSvg = d3.select('#graph-svg');
+        let graphData = null;
+        const tagFiltersEl = document.getElementById('tag-filters');
+        let activeTagFilters = new Set();
+
+        // API calls
+        async function fetchSources() {
+            const res = await fetch('/api/sources');
+            return res.json();
+        }
+
+        async function fetchSkills(sourcePath) {
+            const res = await fetch(`/api/skills?source=${encodeURIComponent(sourcePath)}`);
+            return res.json();
+        }
+
+        async function fetchSkill(skillPath) {
+            const res = await fetch(`/api/skill/${encodeURIComponent(skillPath)}`);
+            return res.json();
+        }
+
+        async function fetchReference(refPath) {
+            const res = await fetch(`/api/reference/${encodeURIComponent(refPath)}`);
+            return res.json();
+        }
+
+        // Render functions
+        function renderSources(sources) {
+            // Plugins
+            const pluginsSection = document.getElementById('plugins-section');
+            const pluginsItems = pluginsSection.querySelector('.section-items');
+            if (sources.plugins.length > 0) {
+                pluginsSection.querySelector('.section-header').innerHTML = `
+                    <span class="toggle">▼</span>
+                    Plugins
+                    <span class="count">${sources.plugins.length}</span>
+                `;
+                pluginsItems.innerHTML = sources.plugins.map(p => `
+                    <div class="source-item" data-path="${p.path}" data-type="plugin">
+                        <div class="name">${p.name}</div>
+                        <div class="path">${p.count} skills · v${p.version}</div>
+                    </div>
+                `).join('');
+            } else {
+                pluginsSection.style.display = 'none';
+            }
+
+            // Custom
+            const customSection = document.getElementById('custom-section');
+            const customItems = customSection.querySelector('.section-items');
+            if (sources.custom.length > 0) {
+                customSection.querySelector('.section-header').innerHTML = `
+                    <span class="toggle">▼</span>
+                    Custom
+                    <span class="count">${sources.custom[0].count}</span>
+                `;
+                customItems.innerHTML = sources.custom.map(c => `
+                    <div class="source-item" data-path="${c.path}" data-type="custom">
+                        <div class="name">${c.name}</div>
+                        <div class="path">${c.count} skills</div>
+                    </div>
+                `).join('');
+            } else {
+                customSection.style.display = 'none';
+            }
+
+            // Commands
+            const commandsSection = document.getElementById('commands-section');
+            const commandsItems = commandsSection.querySelector('.section-items');
+            if (sources.commands.length > 0) {
+                commandsSection.querySelector('.section-header').innerHTML = `
+                    <span class="toggle">▼</span>
+                    Commands
+                    <span class="count">${sources.commands[0].count}</span>
+                `;
+                commandsItems.innerHTML = sources.commands.map(c => `
+                    <div class="source-item" data-path="${c.path}" data-type="commands">
+                        <div class="name">${c.name}</div>
+                        <div class="path">${c.count} commands</div>
+                    </div>
+                `).join('');
+            } else {
+                commandsSection.style.display = 'none';
+            }
+
+            // Add click handlers
+            document.querySelectorAll('.source-item').forEach(el => {
+                el.addEventListener('click', () => selectSource(el.dataset.path, el));
+            });
+
+            // Add toggle handlers
+            document.querySelectorAll('.section-header').forEach(el => {
+                el.addEventListener('click', () => {
+                    const items = el.nextElementSibling;
+                    const toggle = el.querySelector('.toggle');
+                    if (items.style.display === 'none') {
+                        items.style.display = 'block';
+                        toggle.textContent = '▼';
+                    } else {
+                        items.style.display = 'none';
+                        toggle.textContent = '▶';
+                    }
+                });
+            });
+        }
+
+        function getRecencyBadge(health) {
+            if (!health || !health.age_days) return '';
+            const days = health.age_days;
+            if (days < 14) return '<span class="badge recency-fresh">' + Math.round(days) + 'd ago</span>';
+            if (days < 60) return '<span class="badge recency-aging">' + Math.round(days) + 'd ago</span>';
+            return '<span class="badge recency-stale">' + Math.round(days) + 'd ago</span>';
+        }
+
+        function getHealthBadges(skill) {
+            if (!skill.health) return '';
+            let badges = getRecencyBadge(skill.health);
+
+            if (skill.health.word_count && skill.health.word_count > 1000) {
+                badges += `<span class="badge tag">${skill.health.word_count} words</span>`;
+            }
+
+            if (skill.structural_tags) {
+                skill.structural_tags.forEach(tag => {
+                    const label = tag.replace('has-', '').replace('-', ' ');
+                    badges += `<span class="badge tag">${label}</span>`;
+                });
+            }
+
+            if (skill.health.completeness_gaps) {
+                skill.health.completeness_gaps.forEach(gap => {
+                    const label = gap.replace('-', ' ');
+                    badges += `<span class="badge gap">${label}</span>`;
+                });
+            }
+
+            return badges ? `<div class="badges">${badges}</div>` : '';
+        }
+
+        function renderSkills(skills, filter = '') {
+            const filtered = filter
+                ? skills.filter(s =>
+                    s.name.toLowerCase().includes(filter.toLowerCase()) ||
+                    s.description.toLowerCase().includes(filter.toLowerCase())
+                )
+                : skills;
+
+            if (filtered.length === 0) {
+                skillsList.innerHTML = `<div class="empty-state">No skills found</div>`;
+                return;
+            }
+
+            skillsList.innerHTML = filtered.map(s => {
+                const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
+                return `
+                <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                    <div class="skill-header">
+                        <span class="skill-toggle">&#9654;</span>
+                        <div class="skill-info">
+                            <div class="name">${s.name}</div>
+                            <div class="description">${s.description || 'No description'}</div>
+                            ${getHealthBadges(s)}
+                        </div>
+                    </div>
+                    <div class="inline-file-tree"></div>
+                </div>
+            `}).join('');
+
+            bindSkillItemHandlers();
+        }
+
+        function extractAvailableTags(skills) {
+            const tags = new Map(); // tag -> count
+            skills.forEach(s => {
+                if (s.tool_references) {
+                    s.tool_references.forEach(t => {
+                        tags.set(`tool:${t}`, (tags.get(`tool:${t}`) || 0) + 1);
+                    });
+                }
+                if (s.structural_tags) {
+                    s.structural_tags.forEach(t => {
+                        tags.set(t, (tags.get(t) || 0) + 1);
+                    });
+                }
+            });
+            return [...tags.entries()]
+                .filter(([, count]) => count >= 2)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 15);
+        }
+
+        function renderTagFilters(skills) {
+            const tags = extractAvailableTags(skills);
+            if (tags.length === 0) {
+                tagFiltersEl.style.display = 'none';
+                return;
+            }
+
+            tagFiltersEl.style.display = 'flex';
+            tagFiltersEl.innerHTML = tags.map(([tag, count]) => {
+                const label = tag.replace('has-', '').replace('tool:', '');
+                const isActive = activeTagFilters.has(tag);
+                return `<span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${tag}">${label} (${count})</span>`;
+            }).join('');
+        }
+
+        function bindSkillItemHandlers() {
+            document.querySelectorAll('.skill-item').forEach(el => {
+                // Clicking the toggle expands/collapses the inline file tree
+                const toggle = el.querySelector('.skill-toggle');
+                const treeContainer = el.querySelector('.inline-file-tree');
+
+                toggle.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const isExpanded = treeContainer.classList.contains('expanded');
+
+                    if (isExpanded) {
+                        treeContainer.classList.remove('expanded');
+                        toggle.innerHTML = '&#9654;';
+                    } else {
+                        treeContainer.classList.add('expanded');
+                        toggle.innerHTML = '&#9660;';
+
+                        // Load tree if not already loaded
+                        if (!treeContainer.dataset.loaded) {
+                            treeContainer.innerHTML = '<div class="loading" style="padding:8px;font-size:12px;">Loading...</div>';
+                            try {
+                                const dirPath = el.dataset.treeDir;
+                                const res = await fetch(`/api/skill-tree/${encodeURIComponent(dirPath)}`);
+                                const data = await res.json();
+                                if (data.tree && data.tree.length > 0) {
+                                    treeContainer.innerHTML = renderFileTree(data.tree);
+                                    // Bind inline tree click handlers
+                                    treeContainer.querySelectorAll('.file-tree-item.directory').forEach(dir => {
+                                        dir.addEventListener('click', (ev) => {
+                                            ev.stopPropagation();
+                                            const childrenId = dir.dataset.childrenId;
+                                            const childrenEl = document.getElementById(childrenId);
+                                            if (childrenEl) {
+                                                childrenEl.classList.toggle('expanded');
+                                                dir.querySelector('.icon').textContent = childrenEl.classList.contains('expanded') ? '\u{1F4C2}' : '\u{1F4C1}';
+                                            }
+                                        });
+                                    });
+                                    treeContainer.querySelectorAll('.file-tree-item.file').forEach(file => {
+                                        file.addEventListener('click', async (ev) => {
+                                            ev.stopPropagation();
+                                            const filePath = file.dataset.treeFilePath;
+                                            const fileName = file.querySelector('.name').textContent;
+                                            detailPanel.innerHTML = '<div class="loading">Loading file...</div>';
+                                            try {
+                                                const ref = await fetchReference(filePath);
+                                                detailPanel.innerHTML = `
+                                                    <div class="detail-content">
+                                                        <div class="detail-header">
+                                                            <h2>${escapeHtml(ref.name)}</h2>
+                                                            <div class="path">${escapeHtml(ref.path)}</div>
+                                                        </div>
+                                                        <div class="content-preview">
+                                                            ${renderFileContent(ref.path, ref.content)}
+                                                        </div>
+                                                    </div>
+                                                `;
+                                                highlightDetailPanel();
+                                                statusEl.textContent = `Viewing: ${ref.name}`;
+                                            } catch (err) {
+                                                detailPanel.innerHTML = `
+                                                    <div class="detail-content">
+                                                        <div class="detail-header">
+                                                            <h2>${escapeHtml(fileName)}</h2>
+                                                        </div>
+                                                        <div class="error">Unable to display file content</div>
+                                                    </div>
+                                                `;
+                                            }
+                                        });
+                                    });
+                                } else {
+                                    treeContainer.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--text-muted)">No files</div>';
+                                }
+                                treeContainer.dataset.loaded = 'true';
+                            } catch (err) {
+                                treeContainer.innerHTML = '<div style="padding:8px;font-size:12px;color:#dc3545">Error loading files</div>';
+                            }
+                        }
+                    }
+                });
+
+                // Clicking the header (not toggle) selects the skill in detail panel
+                el.querySelector('.skill-info').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectSkill(el.dataset.path, el);
+                });
+            });
+        }
+
+        function applyFilters() {
+            const textFilter = searchInput.value.toLowerCase();
+            let filtered = currentSkills;
+
+            if (textFilter) {
+                filtered = filtered.filter(s =>
+                    s.name.toLowerCase().includes(textFilter) ||
+                    (s.description || '').toLowerCase().includes(textFilter)
+                );
+            }
+
+            if (activeTagFilters.size > 0) {
+                filtered = filtered.filter(s => {
+                    const skillTags = new Set([
+                        ...(s.tool_references || []).map(t => `tool:${t}`),
+                        ...(s.structural_tags || []),
+                    ]);
+                    return [...activeTagFilters].every(tag => skillTags.has(tag));
+                });
+            }
+
+            if (filtered.length === 0) {
+                skillsList.innerHTML = '<div class="empty-state">No skills match filters</div>';
+            } else {
+                skillsList.innerHTML = filtered.map(s => {
+                    const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
+                    return `
+                    <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                        <div class="skill-header">
+                            <span class="skill-toggle">&#9654;</span>
+                            <div class="skill-info">
+                                <div class="name">${s.name}</div>
+                                <div class="description">${s.description || 'No description'}</div>
+                                ${getHealthBadges(s)}
+                            </div>
+                        </div>
+                        <div class="inline-file-tree"></div>
+                    </div>
+                `}).join('');
+                bindSkillItemHandlers();
+            }
+
+            renderTagFilters(currentSkills);
+        }
+
+        tagFiltersEl.addEventListener('click', (e) => {
+            const filter = e.target.closest('.tag-filter');
+            if (!filter) return;
+
+            const tag = filter.dataset.tag;
+            if (activeTagFilters.has(tag)) {
+                activeTagFilters.delete(tag);
+            } else {
+                activeTagFilters.add(tag);
+            }
+
+            applyFilters();
+        });
+
+        // Top-level simple fields worth showing as key-value rows
+        const METADATA_KEYS = ['name', 'description', 'argument-hint'];
+
+        function renderSkillDetail(skill) {
+            // Metadata: clean key-value rows for simple top-level fields
+            const metadataEntries = METADATA_KEYS
+                .filter(k => skill.frontmatter[k] && skill.frontmatter[k].trim())
+                .map(k => [k, skill.frontmatter[k]]);
+
+            const metadataHtml = metadataEntries.map(([k, v]) => `
+                <div class="frontmatter-row">
+                    <div class="key">${escapeHtml(k)}</div>
+                    <div class="value">${escapeHtml(v)}</div>
+                </div>
+            `).join('');
+
+            // Raw YAML: show full frontmatter as syntax-highlighted YAML
+            const rawYaml = skill.frontmatter_raw || '';
+            const hasConfig = rawYaml && rawYaml.trim().split('\n').length > metadataEntries.length;
+
+            detailPanel.innerHTML = `
+                <div class="detail-content">
+                    <div class="detail-header">
+                        <h2>${skill.name}</h2>
+                        <div class="description">${skill.description || 'No description'}</div>
+                        <div class="path">${skill.path}</div>
+                    </div>
+
+                    <div class="section-title">Metadata</div>
+                    <div class="frontmatter-table">
+                        ${metadataHtml || '<div class="empty-state">No metadata</div>'}
+                    </div>
+
+                    ${hasConfig ? `
+                        <div class="section-title">Configuration</div>
+                        <div class="content-preview">
+                            <pre><code class="language-yaml">${escapeHtml(rawYaml)}</code></pre>
+                        </div>
+                    ` : ''}
+
+                    <div class="section-title">Content</div>
+                    <div class="content-preview">
+                        <pre>${escapeHtml(skill.content)}</pre>
+                    </div>
+                </div>
+            `;
+
+            highlightDetailPanel();
+        }
+
+        const FILE_ICONS = {
+            '.md': '📄', '.py': '🐍', '.sh': '⚙️', '.json': '📋',
+            '.html': '🌐', '.yaml': '📋', '.yml': '📋', '.txt': '📝',
+            '.png': '🖼️', '.jpg': '🖼️', '.svg': '🖼️',
+        };
+
+        function getFileIcon(entry) {
+            if (entry.type === 'directory') return '📁';
+            return FILE_ICONS[entry.extension] || '📄';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function renderFileTree(tree, depth = 0) {
+            return tree.map(entry => {
+                const icon = getFileIcon(entry);
+                const indent = '<span class="indent"></span>'.repeat(depth);
+                const sizeStr = entry.size != null ? `<span class="size">${formatFileSize(entry.size)}</span>` : '';
+
+                if (entry.type === 'directory') {
+                    const childrenId = `tree-${entry.path.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                    return `
+                        <div class="file-tree-item directory" data-tree-path="${entry.path}" data-children-id="${childrenId}">
+                            ${indent}
+                            <span class="icon">${icon}</span>
+                            <span class="name">${entry.name}/</span>
+                        </div>
+                        <div class="file-tree-children" id="${childrenId}">
+                            ${entry.children ? renderFileTree(entry.children, depth + 1) : ''}
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="file-tree-item file" data-tree-file-path="${entry.path}" data-ext="${entry.extension || ''}">
+                            ${indent}
+                            <span class="icon">${icon}</span>
+                            <span class="name">${entry.name}</span>
+                            ${sizeStr}
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        const EXT_TO_LANG = {
+            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+            '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
+            '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml',
+            '.html': 'xml', '.xml': 'xml', '.css': 'css',
+            '.md': 'markdown', '.sql': 'sql', '.rb': 'ruby',
+            '.go': 'go', '.rs': 'rust', '.java': 'java',
+            '.c': 'c', '.cpp': 'cpp', '.h': 'c',
+            '.toml': 'ini', '.ini': 'ini', '.cfg': 'ini',
+        };
+
+        function getLangFromPath(filePath) {
+            const ext = filePath.substring(filePath.lastIndexOf('.')).toLowerCase();
+            return EXT_TO_LANG[ext] || null;
+        }
+
+        function renderFileContent(filePath, content) {
+            const lang = getLangFromPath(filePath);
+            if (lang) {
+                const escaped = escapeHtml(content);
+                return `<pre><code class="language-${lang}">${escaped}</code></pre>`;
+            }
+            return `<pre>${escapeHtml(content)}</pre>`;
+        }
+
+        function highlightDetailPanel() {
+            detailPanel.querySelectorAll('pre code').forEach(block => {
+                hljs.highlightElement(block);
+            });
+        }
+
+        // Event handlers
+        async function selectSource(path, el) {
+            // Update active state
+            document.querySelectorAll('.source-item').forEach(e => e.classList.remove('active'));
+            el.classList.add('active');
+
+            currentSource = path;
+            currentSkill = null;
+
+            // Show loading
+            skillsList.innerHTML = '<div class="loading">Loading skills...</div>';
+            detailPanel.innerHTML = '<div class="empty">Select a skill to view details</div>';
+
+            // Fetch skills
+            try {
+                currentSkills = await fetchSkills(path);
+                activeTagFilters.clear();
+                renderSkills(currentSkills);
+                renderTagFilters(currentSkills);
+                statusEl.textContent = `${currentSkills.length} skills loaded`;
+            } catch (err) {
+                skillsList.innerHTML = `<div class="error">Error loading skills: ${err.message}</div>`;
+            }
+        }
+
+        async function selectSkill(path, el) {
+            // Update active state
+            document.querySelectorAll('.skill-item').forEach(e => e.classList.remove('active'));
+            el.classList.add('active');
+
+            currentSkill = path;
+
+            // Show loading
+            detailPanel.innerHTML = '<div class="loading">Loading skill...</div>';
+
+            // Fetch skill
+            try {
+                const skill = await fetchSkill(path);
+                renderSkillDetail(skill);
+                statusEl.textContent = `Viewing: ${skill.name}`;
+            } catch (err) {
+                detailPanel.innerHTML = `<div class="error">Error loading skill: ${err.message}</div>`;
+            }
+        }
+
+        // Search handler
+        searchInput.addEventListener('input', () => applyFilters());
+
+        // Modal handlers
+        modalClose.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+
+        // Reference click handler (delegated)
+        detailPanel.addEventListener('click', async (e) => {
+            const treeDir = e.target.closest('.file-tree-item.directory');
+            const treeFile = e.target.closest('.file-tree-item.file');
+            const refItem = e.target.closest('.reference-item');
+
+            if (treeDir) {
+                const childrenId = treeDir.dataset.childrenId;
+                const childrenEl = document.getElementById(childrenId);
+                if (childrenEl) {
+                    childrenEl.classList.toggle('expanded');
+                    const iconEl = treeDir.querySelector('.icon');
+                    iconEl.textContent = childrenEl.classList.contains('expanded') ? '📂' : '📁';
+                }
+            } else if (treeFile) {
+                const filePath = treeFile.dataset.treeFilePath;
+                const fileName = treeFile.querySelector('.name').textContent;
+                detailPanel.innerHTML = '<div class="loading">Loading file...</div>';
+                try {
+                    const ref = await fetchReference(filePath);
+                    detailPanel.innerHTML = `
+                        <div class="detail-content">
+                            <div class="detail-header">
+                                <h2>${escapeHtml(ref.name)}</h2>
+                                <div class="path">${escapeHtml(ref.path)}</div>
+                            </div>
+                            <div class="content-preview">
+                                ${renderFileContent(ref.path, ref.content)}
+                            </div>
+                        </div>
+                    `;
+                    highlightDetailPanel();
+                    statusEl.textContent = `Viewing: ${ref.name}`;
+                } catch (err) {
+                    detailPanel.innerHTML = `
+                        <div class="detail-content">
+                            <div class="detail-header">
+                                <h2>${escapeHtml(fileName)}</h2>
+                            </div>
+                            <div class="error">Unable to display file content</div>
+                        </div>
+                    `;
+                }
+            } else if (refItem) {
+                const path = refItem.dataset.path;
+                try {
+                    const ref = await fetchReference(path);
+                    detailPanel.innerHTML = `
+                        <div class="detail-content">
+                            <div class="detail-header">
+                                <h2>${escapeHtml(ref.name)}</h2>
+                                <div class="path">${escapeHtml(ref.path)}</div>
+                            </div>
+                            <div class="content-preview">
+                                ${renderFileContent(ref.path, ref.content)}
+                            </div>
+                        </div>
+                    `;
+                    highlightDetailPanel();
+                    statusEl.textContent = `Viewing: ${ref.name}`;
+                } catch (err) {
+                    detailPanel.innerHTML = `<div class="error">Error loading reference: ${err.message}</div>`;
+                }
+            }
+        });
+
+        // Global search
+        globalSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchDebounce);
+            const query = e.target.value.trim();
+
+            if (query.length < 2) {
+                globalSearchResults.classList.remove('active');
+                return;
+            }
+
+            searchDebounce = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                    const results = await res.json();
+                    renderGlobalSearchResults(results);
+                } catch (err) {
+                    globalSearchResults.innerHTML = `<div class="search-result-item"><div class="result-name">Error: ${err.message}</div></div>`;
+                    globalSearchResults.classList.add('active');
+                }
+            }, 250);
+        });
+
+        function renderGlobalSearchResults(results) {
+            if (results.length === 0) {
+                globalSearchResults.innerHTML = '<div class="search-result-item"><div class="result-name" style="color: var(--text-muted)">No results</div></div>';
+            } else {
+                globalSearchResults.innerHTML = results.slice(0, 20).map(r => `
+                    <div class="search-result-item" data-path="${r.path}">
+                        <div class="result-name">${escapeHtml(r.name)}</div>
+                        <div class="result-source">${escapeHtml(r.source_name)} &middot; ${r.source_type}</div>
+                        <div class="result-snippet">${escapeHtml(r.snippet)}</div>
+                    </div>
+                `).join('');
+            }
+            globalSearchResults.classList.add('active');
+        }
+
+        // Click on search result -> load that skill
+        globalSearchResults.addEventListener('click', async (e) => {
+            const item = e.target.closest('.search-result-item');
+            if (!item || !item.dataset.path) return;
+
+            globalSearchResults.classList.remove('active');
+            globalSearchInput.value = '';
+
+            detailPanel.innerHTML = '<div class="loading">Loading skill...</div>';
+            try {
+                const skill = await fetchSkill(item.dataset.path);
+                renderSkillDetail(skill);
+                currentSkill = item.dataset.path;
+                statusEl.textContent = `Viewing: ${skill.name}`;
+            } catch (err) {
+                detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+            }
+        });
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.global-search')) {
+                globalSearchResults.classList.remove('active');
+            }
+        });
+
+        // Keyboard shortcut: Cmd+K to focus global search
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                globalSearchInput.focus();
+                globalSearchInput.select();
+            }
+        });
+
+        // Graph overlay
+        const SOURCE_COLORS = {
+            plugin: '#0066cc',
+            custom: '#28a745',
+            command: '#f0ad4e',
+        };
+
+        graphToggle.addEventListener('click', async () => {
+            if (graphOverlay.classList.contains('active')) {
+                graphOverlay.classList.remove('active');
+                return;
+            }
+
+            graphOverlay.classList.add('active');
+
+            if (!graphData) {
+                try {
+                    const res = await fetch('/api/graph');
+                    graphData = await res.json();
+                } catch (err) {
+                    graphOverlay.innerHTML = `<div class="error" style="margin:20px">Error loading graph: ${err.message}</div>`;
+                    return;
+                }
+            }
+
+            renderGraph(graphData);
+        });
+
+        graphClose.addEventListener('click', () => {
+            graphOverlay.classList.remove('active');
+        });
+
+        function renderGraph(data) {
+            graphSvg.selectAll('*').remove();
+
+            const width = graphOverlay.clientWidth;
+            const height = graphOverlay.clientHeight;
+
+            const svg = graphSvg
+                .attr('width', width)
+                .attr('height', height);
+
+            // Create a container group for zoom/pan
+            const container = svg.append('g');
+
+            // Arrow marker
+            svg.append('defs').append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '0 -5 10 10')
+                .attr('refX', 20)
+                .attr('refY', 0)
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-5L10,0L0,5')
+                .attr('class', 'graph-link-arrow');
+
+            // Deep clone data to avoid d3 mutation issues on re-render
+            const nodes = data.nodes.map(n => ({...n}));
+            const edges = data.edges.map(e => ({...e}));
+
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(edges).id(d => d.id).distance(120))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(40));
+
+            const link = container.append('g')
+                .selectAll('line')
+                .data(edges)
+                .join('line')
+                .attr('class', 'graph-link')
+                .attr('marker-end', 'url(#arrowhead)');
+
+            const node = container.append('g')
+                .selectAll('g')
+                .data(nodes)
+                .join('g')
+                .attr('class', 'graph-node')
+                .call(d3.drag()
+                    .on('start', (event, d) => {
+                        if (!event.active) simulation.alphaTarget(0.3).restart();
+                        d.fx = d.x;
+                        d.fy = d.y;
+                    })
+                    .on('drag', (event, d) => {
+                        d.fx = event.x;
+                        d.fy = event.y;
+                    })
+                    .on('end', (event, d) => {
+                        if (!event.active) simulation.alphaTarget(0);
+                        d.fx = null;
+                        d.fy = null;
+                    })
+                );
+
+            // Size nodes by word count
+            node.append('circle')
+                .attr('r', d => Math.max(6, Math.min(18, Math.sqrt(d.word_count || 100) / 2)))
+                .attr('fill', d => SOURCE_COLORS[d.source_type] || '#999');
+
+            node.append('text')
+                .attr('dx', 14)
+                .attr('dy', 4)
+                .text(d => d.name);
+
+            // Click node to navigate to skill
+            node.on('click', async (event, d) => {
+                graphOverlay.classList.remove('active');
+                detailPanel.innerHTML = '<div class="loading">Loading skill...</div>';
+                try {
+                    const skill = await fetchSkill(d.id);
+                    renderSkillDetail(skill);
+                    currentSkill = d.id;
+                    statusEl.textContent = `Viewing: ${skill.name}`;
+                } catch (err) {
+                    detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+                }
+            });
+
+            // Tooltip on hover
+            node.append('title')
+                .text(d => `${d.name}\n${d.source_name} (${d.source_type})\n${d.word_count || '?'} words`);
+
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            // Zoom - apply transform to container group only
+            const zoom = d3.zoom()
+                .scaleExtent([0.2, 4])
+                .on('zoom', (event) => {
+                    container.attr('transform', event.transform);
+                });
+            svg.call(zoom);
+        }
+
+        // Initialize
+        async function init() {
+            try {
+                sources = await fetchSources();
+                renderSources(sources);
+                statusEl.textContent = 'Ready';
+            } catch (err) {
+                statusEl.textContent = `Error: ${err.message}`;
+                sourcesPanel.innerHTML = `<div class="error">Error loading sources: ${err.message}</div>`;
+            }
+        }
+
+        // WebSocket for live reload
+        function connectWebSocket() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'skill_changed') {
+                    console.log('Skill changed:', data.path);
+                    statusEl.textContent = 'File changed — refreshing...';
+
+                    // Invalidate graph cache
+                    graphData = null;
+
+                    // Refresh current view
+                    if (currentSkill) {
+                        fetchSkill(currentSkill).then(skill => {
+                            renderSkillDetail(skill);
+                            statusEl.textContent = `Viewing: ${skill.name} (refreshed)`;
+                        }).catch(() => {});
+                    }
+                    if (currentSource) {
+                        fetchSkills(currentSource).then(skills => {
+                            currentSkills = skills;
+                            applyFilters();
+                        }).catch(() => {});
+                    }
+
+                    // Refresh sources
+                    fetchSources().then(s => {
+                        sources = s;
+                        renderSources(s);
+                    }).catch(() => {});
+                }
+            };
+
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = () => {
+                ws.close();
+            };
+        }
+
+        connectWebSocket();
+        init();
+    </script>
+</body>
+</html>

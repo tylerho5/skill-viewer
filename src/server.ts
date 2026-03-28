@@ -1,12 +1,11 @@
 import express from "express";
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import { SkillIndex, getSources, getSkillsForSource, buildTree } from "./index.js";
 import { parseFrontmatter, extractFrontmatterRaw, stripFrontmatter } from "./frontmatter.js";
 import type { HealthInfo } from "./types.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+declare const __dirname: string;
 
 export function createApp(index: SkillIndex) {
   const app = express();
