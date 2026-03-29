@@ -47,18 +47,22 @@ const server = http.createServer(app);
 const { broadcast, wss } = setupWebSocket(server);
 const watcher = setupWatcher(index, broadcast);
 
-// Keep project dir watches in sync with watcher when projects are added/removed via API.
-// Patch index methods to call watcher.add/unwatch after the originals complete.
+// Keep watcher in sync with index mutations (project dirs, agent switches).
 const originalAdd = index.addProjectDir.bind(index);
 const originalRemove = index.removeProjectDir.bind(index);
+const originalSetAgent = index.setAgent.bind(index);
 index.addProjectDir = (dir: string): boolean => {
   const ok = originalAdd(dir);
-  if (ok && watcher) watcher.add(dir);
+  if (ok) watcher.add(dir);
   return ok;
 };
 index.removeProjectDir = (dir: string): void => {
   originalRemove(dir);
-  if (watcher) watcher.unwatch(dir);
+  watcher.unwatch(dir);
+};
+index.setAgent = (agentId: string): void => {
+  originalSetAgent(agentId);
+  watcher.switchAgent();
 };
 
 server.listen(PORT, () => {
@@ -80,11 +84,7 @@ function shutdown() {
   console.log("Shutting down...");
   server.close(() => {
     wss.close(() => {
-      if (watcher) {
-        watcher.close().then(() => process.exit(0)).catch(() => process.exit(1));
-      } else {
-        process.exit(0);
-      }
+      watcher.close().then(() => process.exit(0)).catch(() => process.exit(1));
     });
   });
 }

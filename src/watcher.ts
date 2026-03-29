@@ -1,8 +1,14 @@
 import { WebSocketServer, WebSocket } from "ws";
 import chokidar from "chokidar";
 import type { Server } from "node:http";
-import { SkillIndex, PLUGINS_DIR, CUSTOM_SKILLS_DIR, COMMANDS_DIR } from "./index.js";
-import fs from "node:fs";
+import { SkillIndex, getWatchDirs } from "./index.js";
+
+export interface SkillWatcher {
+  add: (dir: string) => void;
+  unwatch: (dir: string) => void;
+  close: () => Promise<void>;
+  switchAgent: () => void;
+}
 
 export function setupWebSocket(server: Server): {
   broadcast: (msg: Record<string, unknown>) => void;
@@ -34,22 +40,18 @@ export function setupWebSocket(server: Server): {
 export function setupWatcher(
   index: SkillIndex,
   broadcast: (msg: Record<string, unknown>) => void,
-): ReturnType<typeof chokidar.watch> | null {
-  const dirs = [PLUGINS_DIR, CUSTOM_SKILLS_DIR, COMMANDS_DIR].filter((d) => {
-    try { return fs.statSync(d).isDirectory(); } catch { return false; }
-  });
+): SkillWatcher {
+  let watchedDirs = getWatchDirs();
 
-  if (dirs.length === 0) return null;
-
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const watcher = chokidar.watch(dirs, {
+  const watcher = chokidar.watch(watchedDirs, {
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 300 },
   });
 
-  function handleChange(_changedPath: string) {
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function handleChange() {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       index.build();
@@ -62,6 +64,21 @@ export function setupWatcher(
   watcher.on("unlink", handleChange);
   watcher.on("error", (err) => console.error("Watcher error:", err));
 
-  console.log(`Watching ${dirs.length} directories for changes`);
-  return watcher;
+  if (watchedDirs.length > 0) {
+    console.log(`Watching ${watchedDirs.length} directories for changes`);
+  }
+
+  return {
+    add: (dir: string) => watcher.add(dir),
+    unwatch: (dir: string) => watcher.unwatch(dir),
+    close: () => watcher.close(),
+    switchAgent: () => {
+      if (watchedDirs.length > 0) watcher.unwatch(watchedDirs);
+      watchedDirs = getWatchDirs();
+      if (watchedDirs.length > 0) {
+        watcher.add(watchedDirs);
+        console.log(`Watching ${watchedDirs.length} directories for changes`);
+      }
+    },
+  };
 }

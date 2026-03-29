@@ -1,7 +1,7 @@
 import express from "express";
 import path from "node:path";
 import fs from "node:fs";
-import { SkillIndex, getSources, getSkillsForSource, buildTree, CLAUDE_DIR, getAgentConfigs } from "./index.js";
+import { SkillIndex, getSources, getSkillsForSource, buildTree, getAgentConfigs } from "./index.js";
 import { parseFrontmatter, extractFrontmatterRaw, stripFrontmatter } from "./frontmatter.js";
 import type { HealthInfo } from "./types.js";
 
