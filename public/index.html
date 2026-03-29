@@ -934,15 +934,28 @@
             <div class="global-search-results" id="global-search-results"></div>
         </div>
         <span class="status" id="status">Loading...</span>
-        <button id="graph-toggle" title="Dependency Graph" style="
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px 10px;
-            cursor: pointer;
-            font-size: 13px;
-            color: var(--text-secondary);
-        ">Graph</button>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+            <select id="agent-select" style="
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font-size: 13px;
+                color: var(--text-secondary);
+                outline: none;
+            ">
+            </select>
+            <button id="graph-toggle" title="Dependency Graph" style="
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font-size: 13px;
+                color: var(--text-secondary);
+            ">Graph</button>
+        </div>
     </header>
 
     <div class="container">
@@ -1995,9 +2008,54 @@
             if (e.key === 'Enter') document.getElementById('add-project-btn').click();
         });
 
+        // Agent switcher
+        const agentSelect = document.getElementById('agent-select');
+
+        async function loadAgents() {
+            try {
+                const res = await fetch('/api/agents');
+                const data = await res.json();
+                agentSelect.innerHTML = data.agents.map(a =>
+                    `<option value="${escapeHtml(a.id)}" ${a.id === data.active_id ? 'selected' : ''}>${escapeHtml(a.name)}</option>`
+                ).join('');
+            } catch (err) {
+                console.error('Failed to load agents:', err);
+            }
+        }
+
+        agentSelect.addEventListener('change', async () => {
+            const agentId = agentSelect.value;
+            statusEl.textContent = 'Switching agent...';
+            currentSource = null;
+            currentSkills = [];
+            currentSkill = null;
+            graphData = null;
+
+            try {
+                const res = await fetch('/api/agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: agentId }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    sources = data.sources;
+                    renderSources(sources);
+                    skillsList.innerHTML = '<div class="empty-state">Select a source</div>';
+                    detailPanel.innerHTML = '<div class="empty">Select a skill to view details</div>';
+                    statusEl.textContent = 'Ready';
+                } else {
+                    statusEl.textContent = `Error: ${data.error}`;
+                }
+            } catch (err) {
+                statusEl.textContent = `Error: ${err.message}`;
+            }
+        });
+
         // Initialize
         async function init() {
             try {
+                await loadAgents();
                 sources = await fetchSources();
                 renderSources(sources);
                 statusEl.textContent = 'Ready';

@@ -113,3 +113,14 @@ export interface CommandSource {
   count: number;
   files: { name: string; path: string }[];
 }
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  globalDir: string;
+  projectDirName: string;
+  fileExtensions: string[];
+  hasPlugins: boolean;
+  subdirs: string[];
+  scanGlobalRoot: boolean;
+}
