@@ -1,11 +1,9 @@
 import express from "express";
 import path from "node:path";
 import fs from "node:fs";
-import { SkillIndex, getSources, getSkillsForSource, buildTree } from "./index.js";
+import { SkillIndex, getSources, getSkillsForSource, buildTree, CLAUDE_DIR } from "./index.js";
 import { parseFrontmatter, extractFrontmatterRaw, stripFrontmatter } from "./frontmatter.js";
 import type { HealthInfo } from "./types.js";
-
-declare const __dirname: string;
 
 function extractWildcard(params: Record<string, unknown>): string {
   const val = params.path;
@@ -50,6 +48,11 @@ function getReferenceFiles(skillPath: string): RefEntry[] {
     } catch { continue; }
   }
   return refs;
+}
+
+function isUnderAllowedRoot(resolvedPath: string, index: SkillIndex): boolean {
+  const roots = [CLAUDE_DIR, ...index.getProjectDirs()];
+  return roots.some((root) => resolvedPath.startsWith(root + path.sep) || resolvedPath === root);
 }
 
 export function createApp(index: SkillIndex) {
@@ -102,7 +105,8 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/skill/*path", (req, res) => {
-    const skillPath = extractWildcard(req.params as Record<string, unknown>);
+    const skillPath = path.resolve(extractWildcard(req.params as Record<string, unknown>));
+    if (!isUnderAllowedRoot(skillPath, index)) { res.status(403).json({ error: "Access denied" }); return; }
     if (!fs.existsSync(skillPath)) { res.status(404).json({ error: "Skill not found" }); return; }
 
     try {
@@ -112,7 +116,7 @@ export function createApp(index: SkillIndex) {
       const body = stripFrontmatter(content);
 
       const response: Record<string, unknown> = {
-        name: frontmatter.name || path.basename(skillPath, path.extname(skillPath)),
+        name: frontmatter.name || (path.basename(skillPath) === "SKILL.md" ? path.basename(path.dirname(skillPath)) : path.basename(skillPath, path.extname(skillPath))),
         description: frontmatter.description || "",
         frontmatter,
         frontmatter_raw: frontmatterRaw,
@@ -138,7 +142,8 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/reference/*path", (req, res) => {
-    const refPath = extractWildcard(req.params as Record<string, unknown>);
+    const refPath = path.resolve(extractWildcard(req.params as Record<string, unknown>));
+    if (!isUnderAllowedRoot(refPath, index)) { res.status(403).json({ error: "Access denied" }); return; }
     if (!fs.existsSync(refPath)) { res.status(404).json({ error: "Reference not found" }); return; }
 
     try {
@@ -179,7 +184,8 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/skill-tree/*path", (req, res) => {
-    const dirPath = extractWildcard(req.params as Record<string, unknown>);
+    const dirPath = path.resolve(extractWildcard(req.params as Record<string, unknown>));
+    if (!isUnderAllowedRoot(dirPath, index)) { res.status(403).json({ error: "Access denied" }); return; }
     if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
       res.status(404).json({ error: "Directory not found" });
       return;
@@ -188,7 +194,8 @@ export function createApp(index: SkillIndex) {
   });
 
   app.get("/api/health/*path", (req, res) => {
-    const skillPath = extractWildcard(req.params as Record<string, unknown>);
+    const skillPath = path.resolve(extractWildcard(req.params as Record<string, unknown>));
+    if (!isUnderAllowedRoot(skillPath, index)) { res.status(403).json({ error: "Access denied" }); return; }
     const health = index.getHealth(skillPath);
     if (!health) { res.status(404).json({ error: "Skill not found in index" }); return; }
     res.json(toSnakeHealth(health));
