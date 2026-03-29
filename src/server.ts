@@ -1,7 +1,7 @@
 import express from "express";
 import path from "node:path";
 import fs from "node:fs";
-import { SkillIndex, getSources, getSkillsForSource, buildTree, CLAUDE_DIR } from "./index.js";
+import { SkillIndex, getSources, getSkillsForSource, buildTree, CLAUDE_DIR, getAgentConfigs } from "./index.js";
 import { parseFrontmatter, extractFrontmatterRaw, stripFrontmatter } from "./frontmatter.js";
 import type { HealthInfo } from "./types.js";
 
@@ -51,7 +51,8 @@ function getReferenceFiles(skillPath: string): RefEntry[] {
 }
 
 function isUnderAllowedRoot(resolvedPath: string, index: SkillIndex): boolean {
-  const roots = [CLAUDE_DIR, ...index.getProjectDirs()];
+  const agent = index.getActiveAgent();
+  const roots = [agent.globalDir, ...index.getProjectDirs()];
   return roots.some((root) => resolvedPath.startsWith(root + path.sep) || resolvedPath === root);
 }
 
@@ -68,6 +69,29 @@ export function createApp(index: SkillIndex) {
 
   app.use(express.json());
 
+  app.get("/api/agents", (_req, res) => {
+    const agents = getAgentConfigs().map((a) => ({
+      id: a.id,
+      name: a.name,
+      global_dir: a.globalDir,
+      project_dir_name: a.projectDirName,
+    }));
+    const active = index.getActiveAgent();
+    res.json({ agents, active_id: active.id });
+  });
+
+  app.post("/api/agent", (req, res) => {
+    const agentId = req.body?.id as string | undefined;
+    if (!agentId) { res.status(400).json({ error: "Missing agent id" }); return; }
+    const configs = getAgentConfigs();
+    if (!configs.find((a) => a.id === agentId)) {
+      res.status(400).json({ error: `Unknown agent: ${agentId}` });
+      return;
+    }
+    index.setAgent(agentId);
+    res.json({ ok: true, active_id: agentId, sources: getSources(index) });
+  });
+
   app.get("/api/sources", (_req, res) => {
     res.json(getSources(index));
   });
@@ -76,7 +100,11 @@ export function createApp(index: SkillIndex) {
     const dir = req.body?.path as string | undefined;
     if (!dir) { res.status(400).json({ error: "Missing path" }); return; }
     const ok = index.addProjectDir(dir);
-    if (!ok) { res.status(400).json({ error: "No .claude/ directory found at that path" }); return; }
+    if (!ok) {
+      const agent = index.getActiveAgent();
+      res.status(400).json({ error: `No ${agent.projectDirName}/ directory found at that path` });
+      return;
+    }
     res.json({ ok: true, sources: getSources(index) });
   });
 

@@ -10,12 +10,94 @@ import type {
   SearchResult,
   TreeEntry,
   SourceInfo,
+  AgentConfig,
 } from "./types.js";
 
-const CLAUDE_DIR = path.join(os.homedir(), ".claude");
-const PLUGINS_DIR = path.join(CLAUDE_DIR, "plugins", "cache", "claude-plugins-official");
-const CUSTOM_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
-const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
+const AGENT_CONFIGS: AgentConfig[] = [
+  {
+    id: "claude",
+    name: "Claude Code",
+    globalDir: path.join(os.homedir(), ".claude"),
+    projectDirName: ".claude",
+    fileExtensions: [".md"],
+    hasPlugins: true,
+    subdirs: ["skills", "commands"],
+  },
+  {
+    id: "gemini",
+    name: "Gemini CLI",
+    globalDir: path.join(os.homedir(), ".gemini"),
+    projectDirName: ".gemini",
+    fileExtensions: [".md"],
+    hasPlugins: false,
+    subdirs: [],
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    globalDir: path.join(os.homedir(), ".config", "opencode"),
+    projectDirName: ".opencode",
+    fileExtensions: [".md"],
+    hasPlugins: false,
+    subdirs: ["skills", "commands", "agents"],
+  },
+  {
+    id: "codex",
+    name: "Codex CLI",
+    globalDir: path.join(os.homedir(), ".codex"),
+    projectDirName: ".codex",
+    fileExtensions: [".md"],
+    hasPlugins: false,
+    subdirs: [],
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    globalDir: path.join(os.homedir(), ".cursor"),
+    projectDirName: ".cursor",
+    fileExtensions: [".md", ".mdc"],
+    hasPlugins: false,
+    subdirs: ["rules"],
+  },
+  {
+    id: "cline",
+    name: "Cline",
+    globalDir: path.join(os.homedir(), "Documents", "Cline", "Rules"),
+    projectDirName: ".clinerules",
+    fileExtensions: [".md", ".txt"],
+    hasPlugins: false,
+    subdirs: [],
+  },
+];
+
+function getAgentConfig(agentId: string): AgentConfig {
+  return AGENT_CONFIGS.find((a) => a.id === agentId) || AGENT_CONFIGS[0];
+}
+
+let activeAgent = AGENT_CONFIGS[0];
+
+let CLAUDE_DIR = activeAgent.globalDir;
+let PLUGINS_DIR = path.join(CLAUDE_DIR, "plugins", "cache", "claude-plugins-official");
+let CUSTOM_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
+let COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
+
+function updateDirs(agent: AgentConfig): void {
+  CLAUDE_DIR = agent.globalDir;
+  if (agent.id === "claude") {
+    PLUGINS_DIR = path.join(CLAUDE_DIR, "plugins", "cache", "claude-plugins-official");
+    CUSTOM_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
+    COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
+  } else {
+    PLUGINS_DIR = "";
+    CUSTOM_SKILLS_DIR = CLAUDE_DIR;
+    COMMANDS_DIR = "";
+    for (const sub of agent.subdirs) {
+      const subDir = path.join(CLAUDE_DIR, sub);
+      if (sub === "commands") COMMANDS_DIR = subDir;
+      else if (sub === "rules") CUSTOM_SKILLS_DIR = subDir;
+    }
+  }
+}
 
 const KNOWN_TOOLS = new Set([
   "Agent", "Bash", "Edit", "Read", "Write", "Glob", "Grep",
@@ -68,20 +150,34 @@ export class SkillIndex {
   private byPath = new Map<string, IndexedSkill>();
   private projectDirs = new Set<string>();
 
+  getActiveAgent(): AgentConfig {
+    return activeAgent;
+  }
+
+  setAgent(agentId: string): void {
+    activeAgent = getAgentConfig(agentId);
+    updateDirs(activeAgent);
+    this.build();
+  }
+
   build(): void {
     this.skills = [];
     this.byPath = new Map();
-    this.indexPlugins();
-    this.indexCustomSkills();
-    this.indexCommands();
+    if (activeAgent.id === "claude") {
+      this.indexPlugins();
+      this.indexCustomSkills();
+      this.indexCommands();
+    } else {
+      this.indexGenericGlobalDir();
+    }
     for (const dir of this.projectDirs) {
       this.indexProjectDir(dir);
     }
   }
 
   addProjectDir(projectDir: string): boolean {
-    const claudeDir = path.join(projectDir, ".claude");
-    if (!exists(claudeDir) || !isDir(claudeDir)) return false;
+    const configDir = path.join(projectDir, activeAgent.projectDirName);
+    if (!exists(configDir) || !isDir(configDir)) return false;
     this.projectDirs.add(projectDir);
     this.indexProjectDir(projectDir);
     return true;
@@ -89,10 +185,10 @@ export class SkillIndex {
 
   removeProjectDir(projectDir: string): void {
     this.projectDirs.delete(projectDir);
-    const claudeDir = path.join(projectDir, ".claude");
-    this.skills = this.skills.filter((s) => !s.path.startsWith(claudeDir + path.sep));
+    const configDir = path.join(projectDir, activeAgent.projectDirName);
+    this.skills = this.skills.filter((s) => !s.path.startsWith(configDir + path.sep));
     for (const [p] of this.byPath) {
-      if (p.startsWith(claudeDir + path.sep)) this.byPath.delete(p);
+      if (p.startsWith(configDir + path.sep)) this.byPath.delete(p);
     }
   }
 
@@ -206,32 +302,80 @@ export class SkillIndex {
     }
   }
 
-  private indexProjectDir(projectDir: string): void {
-    const claudeDir = path.join(projectDir, ".claude");
-    const projectName = path.basename(projectDir);
+  private hasMatchingExtension(filename: string): boolean {
+    return activeAgent.fileExtensions.some((ext) => filename.endsWith(ext));
+  }
 
-    const cmdsDir = path.join(claudeDir, "commands");
-    if (exists(cmdsDir) && isDir(cmdsDir)) {
-      for (const name of readdir(cmdsDir)) {
-        const filePath = path.join(cmdsDir, name);
-        if (isFile(filePath) && name.endsWith(".md")) {
-          this.indexSkill(filePath, "project", projectName, cmdsDir);
-        }
+  private indexGenericGlobalDir(): void {
+    const globalDir = activeAgent.globalDir;
+    if (!exists(globalDir) || !isDir(globalDir)) return;
+
+    if (activeAgent.subdirs.length === 0) return;
+    for (const sub of activeAgent.subdirs) {
+      const subDir = path.join(globalDir, sub);
+      if (exists(subDir) && isDir(subDir)) {
+        this.indexGenericDir(subDir, "custom", activeAgent.name, true);
       }
     }
+  }
 
-    const skillsDir = path.join(claudeDir, "skills");
-    if (exists(skillsDir) && isDir(skillsDir)) {
-      for (const name of readdir(skillsDir)) {
-        const itemPath = path.join(skillsDir, name);
-        if (isDir(itemPath)) {
-          const skillFile = path.join(itemPath, "SKILL.md");
-          if (exists(skillFile)) {
-            this.indexSkill(skillFile, "project", projectName, itemPath);
+  private indexGenericDir(
+    dir: string,
+    sourceType: IndexedSkill["sourceType"],
+    sourceName: string,
+    recursive: boolean,
+  ): void {
+    for (const name of readdir(dir)) {
+      if (name.startsWith(".")) continue;
+      const itemPath = path.join(dir, name);
+      if (isFile(itemPath) && this.hasMatchingExtension(name)) {
+        this.indexSkill(itemPath, sourceType, sourceName, dir);
+      } else if (recursive && isDir(itemPath)) {
+        this.indexGenericDir(itemPath, sourceType, sourceName, true);
+      }
+    }
+  }
+
+  private indexProjectDir(projectDir: string): void {
+    const configDir = path.join(projectDir, activeAgent.projectDirName);
+    const projectName = path.basename(projectDir);
+
+    if (activeAgent.id === "claude") {
+      const cmdsDir = path.join(configDir, "commands");
+      if (exists(cmdsDir) && isDir(cmdsDir)) {
+        for (const name of readdir(cmdsDir)) {
+          const filePath = path.join(cmdsDir, name);
+          if (isFile(filePath) && name.endsWith(".md")) {
+            this.indexSkill(filePath, "project", projectName, cmdsDir);
           }
-        } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
-          this.indexSkill(itemPath, "project", projectName, skillsDir);
         }
+      }
+
+      const skillsDir = path.join(configDir, "skills");
+      if (exists(skillsDir) && isDir(skillsDir)) {
+        for (const name of readdir(skillsDir)) {
+          const itemPath = path.join(skillsDir, name);
+          if (isDir(itemPath)) {
+            const skillFile = path.join(itemPath, "SKILL.md");
+            if (exists(skillFile)) {
+              this.indexSkill(skillFile, "project", projectName, itemPath);
+            }
+          } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
+            this.indexSkill(itemPath, "project", projectName, skillsDir);
+          }
+        }
+      }
+    } else {
+      if (!exists(configDir) || !isDir(configDir)) return;
+      if (activeAgent.subdirs.length > 0) {
+        for (const sub of activeAgent.subdirs) {
+          const subDir = path.join(configDir, sub);
+          if (exists(subDir) && isDir(subDir)) {
+            this.indexGenericDir(subDir, "project", projectName, true);
+          }
+        }
+      } else {
+        this.indexGenericDir(configDir, "project", projectName, false);
       }
     }
   }
@@ -334,88 +478,99 @@ export class SkillIndex {
 export function getSources(index?: SkillIndex): SourceInfo {
   const sources: SourceInfo = { plugins: [], custom: [], commands: [], projects: [] };
 
-  if (exists(PLUGINS_DIR)) {
-    for (const pluginName of readdir(PLUGINS_DIR)) {
-      const pluginDir = path.join(PLUGINS_DIR, pluginName);
-      if (!isDir(pluginDir)) continue;
-      const latestVersion = findLatestVersionDir(pluginDir);
-      if (!latestVersion) continue;
-      const skillsDir = path.join(latestVersion, "skills");
-      if (!exists(skillsDir)) continue;
-      const skills: { name: string; path: string }[] = [];
-      for (const skillName of readdir(skillsDir)) {
-        const d = path.join(skillsDir, skillName);
-        const skillFile = path.join(d, "SKILL.md");
-        if (!isDir(d) || !exists(skillFile)) continue;
-        try {
-          const content = readText(skillFile);
-          const fm = parseFrontmatter(content);
-          skills.push({ name: fm.name || skillName, path: skillFile });
-        } catch {
-          skills.push({ name: skillName, path: skillFile });
-        }
-      }
-      skills.sort((a, b) => a.name.localeCompare(b.name));
-      sources.plugins.push({
-        name: pluginName,
-        path: skillsDir,
-        count: skills.length,
-        version: path.basename(latestVersion),
-        skills,
-      });
-    }
-  }
-
-  if (exists(CUSTOM_SKILLS_DIR)) {
-    const files: { name: string; path: string }[] = [];
-    for (const name of readdir(CUSTOM_SKILLS_DIR)) {
-      const itemPath = path.join(CUSTOM_SKILLS_DIR, name);
-      if (isDir(itemPath)) {
-        const skillFile = path.join(itemPath, "SKILL.md");
-        if (exists(skillFile)) {
+  if (activeAgent.id === "claude") {
+    if (exists(PLUGINS_DIR)) {
+      for (const pluginName of readdir(PLUGINS_DIR)) {
+        const pluginDir = path.join(PLUGINS_DIR, pluginName);
+        if (!isDir(pluginDir)) continue;
+        const latestVersion = findLatestVersionDir(pluginDir);
+        if (!latestVersion) continue;
+        const skillsDir = path.join(latestVersion, "skills");
+        if (!exists(skillsDir)) continue;
+        const skills: { name: string; path: string }[] = [];
+        for (const skillName of readdir(skillsDir)) {
+          const d = path.join(skillsDir, skillName);
+          const skillFile = path.join(d, "SKILL.md");
+          if (!isDir(d) || !exists(skillFile)) continue;
           try {
             const content = readText(skillFile);
             const fm = parseFrontmatter(content);
-            files.push({ name: fm.name || name, path: skillFile });
+            skills.push({ name: fm.name || skillName, path: skillFile });
           } catch {
-            files.push({ name, path: skillFile });
+            skills.push({ name: skillName, path: skillFile });
           }
         }
-      } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
-        try {
-          const content = readText(itemPath);
-          const fm = parseFrontmatter(content);
-          files.push({ name: fm.name || name.replace(/\.md$/, ""), path: itemPath });
-        } catch {
-          files.push({ name: name.replace(/\.md$/, ""), path: itemPath });
-        }
+        skills.sort((a, b) => a.name.localeCompare(b.name));
+        sources.plugins.push({
+          name: pluginName,
+          path: skillsDir,
+          count: skills.length,
+          version: path.basename(latestVersion),
+          skills,
+        });
       }
     }
-    files.sort((a, b) => a.name.localeCompare(b.name));
-    if (files.length > 0) {
-      sources.custom.push({ name: "Custom Skills", path: CUSTOM_SKILLS_DIR, count: files.length, files });
-    }
-  }
 
-  if (exists(COMMANDS_DIR)) {
-    const files = readdir(COMMANDS_DIR)
-      .filter((n) => n.endsWith(".md") && isFile(path.join(COMMANDS_DIR, n)))
-      .map((n) => ({ name: n.replace(/\.md$/, ""), path: path.join(COMMANDS_DIR, n) }));
+    if (exists(CUSTOM_SKILLS_DIR)) {
+      const files: { name: string; path: string }[] = [];
+      for (const name of readdir(CUSTOM_SKILLS_DIR)) {
+        const itemPath = path.join(CUSTOM_SKILLS_DIR, name);
+        if (isDir(itemPath)) {
+          const skillFile = path.join(itemPath, "SKILL.md");
+          if (exists(skillFile)) {
+            try {
+              const content = readText(skillFile);
+              const fm = parseFrontmatter(content);
+              files.push({ name: fm.name || name, path: skillFile });
+            } catch {
+              files.push({ name, path: skillFile });
+            }
+          }
+        } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
+          try {
+            const content = readText(itemPath);
+            const fm = parseFrontmatter(content);
+            files.push({ name: fm.name || name.replace(/\.md$/, ""), path: itemPath });
+          } catch {
+            files.push({ name: name.replace(/\.md$/, ""), path: itemPath });
+          }
+        }
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name));
+      if (files.length > 0) {
+        sources.custom.push({ name: "Custom Skills", path: CUSTOM_SKILLS_DIR, count: files.length, files });
+      }
+    }
+
+    if (exists(COMMANDS_DIR)) {
+      const files = readdir(COMMANDS_DIR)
+        .filter((n) => n.endsWith(".md") && isFile(path.join(COMMANDS_DIR, n)))
+        .map((n) => ({ name: n.replace(/\.md$/, ""), path: path.join(COMMANDS_DIR, n) }));
+      if (files.length > 0) {
+        sources.commands.push({ name: "Commands", path: COMMANDS_DIR, count: files.length, files });
+      }
+    }
+  } else {
+    // Non-Claude agents: build sources from indexed skills
+    const files = index ? index.skills
+      .filter((s) => s.sourceType === "custom")
+      .map((s) => ({ name: s.name, path: s.path }))
+      .sort((a, b) => a.name.localeCompare(b.name)) : [];
     if (files.length > 0) {
-      sources.commands.push({ name: "Commands", path: COMMANDS_DIR, count: files.length, files });
+      sources.custom.push({ name: activeAgent.name, path: activeAgent.globalDir, count: files.length, files });
     }
   }
 
   if (index) {
     for (const projectDir of index.getProjectDirs()) {
-      const claudeDir = path.join(projectDir, ".claude");
-      const cmdsDir = path.join(claudeDir, "commands");
-      const skillsDir = path.join(claudeDir, "skills");
+      const configDir = path.join(projectDir, activeAgent.projectDirName);
+      const cmdsDir = path.join(configDir, "commands");
+      const skillsDir = path.join(configDir, "skills");
       const commandCount = exists(cmdsDir) ? readdir(cmdsDir).filter((n) => n.endsWith(".md") && isFile(path.join(cmdsDir, n))).length : 0;
       const skillCount = exists(skillsDir) ? readdir(skillsDir).filter((n) => isDir(path.join(skillsDir, n)) || (n.endsWith(".md") && isFile(path.join(skillsDir, n)))).length : 0;
       sources.projects.push({
         name: path.basename(projectDir),
-        path: claudeDir,
+        path: configDir,
         projectDir,
         commandCount,
         skillCount,
@@ -490,6 +645,10 @@ export function buildTree(dirPath: string): TreeEntry[] {
   }
 
   return entries;
+}
+
+export function getAgentConfigs(): AgentConfig[] {
+  return AGENT_CONFIGS;
 }
 
 export { CLAUDE_DIR, PLUGINS_DIR, CUSTOM_SKILLS_DIR, COMMANDS_DIR };
