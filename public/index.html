@@ -137,6 +137,23 @@
             border-left-color: var(--accent);
         }
 
+        /* Source-type left border indicators */
+        .sb-item.sb-plugin {
+            border-left-color: #c8d6e5;
+        }
+
+        .sb-item.sb-user {
+            border-left-color: #d5c4f2;
+        }
+
+        .sb-item.sb-plugin.active {
+            border-left-color: var(--accent);
+        }
+
+        .sb-item.sb-user.active {
+            border-left-color: var(--accent);
+        }
+
         /* Nested items under a group */
         .sb-item.sb-nested {
             padding-left: 32px;
@@ -1082,7 +1099,7 @@
             // Multi-skill plugins as groups
             for (const p of multiPlugins) {
                 const children = p.skills.map(s =>
-                    `<div class="sb-item sb-nested" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
+                    `<div class="sb-item sb-nested sb-plugin" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
                 ).join('');
                 html += `
                     <div class="sb-group-wrap" data-path="${escapeHtml(p.path)}">
@@ -1097,7 +1114,7 @@
 
             // Solo plugin skills as flat items
             for (const s of soloSkills) {
-                html += `<div class="sb-item" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`;
+                html += `<div class="sb-item sb-plugin" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`;
             }
 
             // User skills
@@ -1106,7 +1123,7 @@
                 total += customFiles.length;
                 html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">User Skills</span></div>`;
                 for (const f of customFiles) {
-                    html += `<div class="sb-item sb-nested" data-path="${escapeHtml(f.path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
+                    html += `<div class="sb-item sb-nested sb-user" data-path="${escapeHtml(f.path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
                 }
             }
 
