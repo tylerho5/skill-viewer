@@ -1092,7 +1092,7 @@
                 if (skills.length > 1) {
                     multiPlugins.push(p);
                 } else if (skills.length === 1) {
-                    soloSkills.push(skills[0]);
+                    soloSkills.push({ ...skills[0], sourcePath: p.path });
                 }
             }
 
@@ -1104,7 +1104,7 @@
             // Multi-skill plugins as groups
             for (const p of multiPlugins) {
                 const children = p.skills.map(s =>
-                    `<div class="sb-item sb-nested sb-plugin" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
+                    `<div class="sb-item sb-nested sb-plugin" data-path="${escapeHtml(s.path)}" data-source="${escapeHtml(p.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
                 ).join('');
                 html += `
                     <div class="sb-group-wrap" data-path="${escapeHtml(p.path)}">
@@ -1119,7 +1119,7 @@
 
             // Solo plugin skills as flat items
             for (const s of soloSkills) {
-                html += `<div class="sb-item sb-plugin" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`;
+                html += `<div class="sb-item sb-plugin" data-path="${escapeHtml(s.path)}" data-source="${escapeHtml(s.sourcePath)}" data-type="skill">${escapeHtml(s.name)}</div>`;
             }
 
             // User skills
@@ -1128,7 +1128,7 @@
                 total += customFiles.length;
                 html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">User Skills</span></div>`;
                 for (const f of customFiles) {
-                    html += `<div class="sb-item sb-nested sb-user" data-path="${escapeHtml(f.path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
+                    html += `<div class="sb-item sb-nested sb-user" data-path="${escapeHtml(f.path)}" data-source="${escapeHtml(sources.custom[0].path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
                 }
             }
 
@@ -1143,7 +1143,7 @@
             for (const c of sources.commands) {
                 for (const f of (c.files || [])) {
                     cmdTotal++;
-                    cmdHtml += `<div class="sb-item" data-path="${escapeHtml(f.path)}" data-type="command">${escapeHtml(f.name)}</div>`;
+                    cmdHtml += `<div class="sb-item" data-path="${escapeHtml(f.path)}" data-source="${escapeHtml(c.path)}" data-type="command">${escapeHtml(f.name)}</div>`;
                 }
             }
             commandsCount.textContent = cmdTotal;
@@ -1181,12 +1181,17 @@
 
             // All clickable items
             document.querySelectorAll('.sb-item').forEach(el => {
-                el.addEventListener('click', (e) => {
+                el.addEventListener('click', async (e) => {
                     if (e.target.classList.contains('remove-project-btn')) return;
                     clearActive();
                     el.classList.add('active');
                     if (el.dataset.type === 'skill' || el.dataset.type === 'command') {
+                        const sourcePath = el.dataset.source;
+                        if (sourcePath && sourcePath !== currentSource) {
+                            await selectSource(sourcePath, el);
+                        }
                         selectSkill(el.dataset.path);
+                        scrollMiddleToSkill(el.dataset.path);
                     } else {
                         selectSource(el.dataset.path, el);
                     }
@@ -1608,6 +1613,15 @@
         }
 
         // Event handlers
+        function scrollMiddleToSkill(skillPath) {
+            const item = document.querySelector(`.skill-item[data-path="${CSS.escape(skillPath)}"]`);
+            if (item) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.querySelectorAll('.skill-item').forEach(e => e.classList.remove('active'));
+                item.classList.add('active');
+            }
+        }
+
         async function selectSource(path, el) {
             // Update active state
             document.querySelectorAll('.source-item').forEach(e => e.classList.remove('active'));

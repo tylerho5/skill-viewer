@@ -189,13 +189,6 @@ export class SkillIndex {
         const skillFile = path.join(itemPath, "SKILL.md");
         if (exists(skillFile)) {
           this.indexSkill(skillFile, "custom", "Custom Skills", itemPath);
-        } else {
-          for (const md of readdir(itemPath)) {
-            if (md.endsWith(".md") && isFile(path.join(itemPath, md))) {
-              this.indexSkill(path.join(itemPath, md), "custom", "Custom Skills", itemPath);
-              break;
-            }
-          }
         }
       } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
         this.indexSkill(itemPath, "custom", "Custom Skills", path.dirname(itemPath));
