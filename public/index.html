@@ -115,39 +115,85 @@
             font-size: 10px;
         }
 
-        .sources-panel .source-item {
+        /* Sidebar item — every clickable leaf in the sidebar */
+        .sb-item {
             position: relative;
-            padding: 6px 12px 6px 24px;
+            padding: 3px 12px 3px 20px;
             cursor: pointer;
-            border-left: 3px solid transparent;
-            transition: all 0.15s ease;
-        }
-
-        .sources-panel .source-item:hover {
-            background: var(--bg-tertiary);
-            border-left-color: var(--accent);
-        }
-
-        .sources-panel .source-item.active {
-            background: var(--bg-tertiary);
-            border-left-color: var(--accent);
-        }
-
-        .sources-panel .source-item .name {
             font-size: 13px;
-            margin-bottom: 1px;
-        }
-
-        .sources-panel .source-item .path {
-            font-size: 11px;
-            color: var(--text-muted);
+            color: var(--text-primary);
+            border-left: 3px solid transparent;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
+        .sb-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .sb-item.active {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent);
+        }
+
+        /* Nested items under a group */
+        .sb-item.sb-nested {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        /* Group header — small muted uppercase label with toggle */
+        .sb-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px 2px 14px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sb-group:hover {
+            color: var(--text-secondary);
+        }
+
+        .sb-group .sb-toggle {
+            font-size: 8px;
+            width: 8px;
+        }
+
+        .sb-group .sb-group-name {
+            flex: 1;
+        }
+
+        .sb-group .sb-group-count {
+            font-size: 10px;
+            font-weight: 400;
+        }
+
+        .sb-group-children {
+            display: none;
+        }
+
+        .sb-group-wrap.expanded > .sb-group-children {
+            display: block;
+        }
+
+        /* Meta text (e.g. item count on projects) */
+        .sb-meta {
+            float: right;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* Project add form */
         .project-add-form {
-            padding: 6px 12px 6px 24px;
+            padding: 6px 12px 6px 20px;
         }
 
         .project-add-row {
@@ -209,90 +255,15 @@
             padding: 2px 4px;
             border-radius: 3px;
             opacity: 0;
-            transition: opacity 0.15s;
+            transition: opacity 0.1s;
         }
 
-        .source-item:hover .remove-project-btn {
+        .sb-item:hover .remove-project-btn {
             opacity: 1;
         }
 
         .remove-project-btn:hover {
             color: #cc3333;
-            background: var(--bg-tertiary);
-        }
-
-        .source-type-label {
-            display: inline-block;
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            padding: 1px 5px;
-            border-radius: 3px;
-            vertical-align: middle;
-            margin-left: 6px;
-            color: var(--text-muted);
-            background: var(--bg-tertiary);
-        }
-
-        .plugin-group {
-            position: relative;
-        }
-
-        .plugin-group-header {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 6px 12px 6px 16px;
-            cursor: pointer;
-            border-left: 3px solid transparent;
-            transition: all 0.15s ease;
-        }
-
-        .plugin-group-header:hover,
-        .plugin-group-header.active {
-            background: var(--bg-tertiary);
-        }
-
-        .plugin-group-header .pg-toggle {
-            font-size: 8px;
-            color: var(--text-muted);
-            width: 10px;
-            flex-shrink: 0;
-        }
-
-        .plugin-group-header .pg-name {
-            font-size: 13px;
-            flex: 1;
-            min-width: 0;
-        }
-
-        .plugin-group-header .pg-count {
-            font-size: 10px;
-            color: var(--text-muted);
-            flex-shrink: 0;
-        }
-
-        .plugin-group-children {
-            display: none;
-        }
-
-        .plugin-group.expanded .plugin-group-children {
-            display: block;
-        }
-
-        .plugin-group-children .source-item {
-            padding-left: 36px;
-        }
-
-        .plugin-group-children .source-item .name {
-            font-size: 12px;
-        }
-
-        .source-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 6px 16px;
         }
 
         /* Skills Panel */
@@ -1085,78 +1056,87 @@
         }
 
         // Render functions
+        function clearActive() {
+            document.querySelectorAll('.sb-item.active').forEach(el => el.classList.remove('active'));
+        }
+
         function renderSources(sources) {
-            // --- Skills section: plugins (expandable groups) + custom (flat items) ---
             const skillsItems = document.getElementById('skills-items');
             const skillsCount = document.getElementById('skills-count');
-            let skillsHtml = '';
-            let totalSkills = 0;
+            let html = '';
+            let total = 0;
 
-            // Plugins as expandable groups
+            // Separate single-skill and multi-skill plugins
+            const multiPlugins = [];
+            const soloSkills = [];
             for (const p of sources.plugins) {
-                totalSkills += p.count;
-                const childrenHtml = (p.skills || []).map(s => `
-                    <div class="source-item" data-path="${escapeHtml(s.path)}" data-type="skill">
-                        <div class="name">${escapeHtml(s.name)}</div>
-                    </div>`).join('');
-                skillsHtml += `
-                    <div class="plugin-group" data-path="${escapeHtml(p.path)}">
-                        <div class="plugin-group-header">
-                            <span class="pg-toggle">▶</span>
-                            <span class="pg-name">${escapeHtml(p.name)}</span>
-                            <span class="pg-count">${p.count}</span>
+                const skills = p.skills || [];
+                total += skills.length;
+                if (skills.length > 1) {
+                    multiPlugins.push(p);
+                } else if (skills.length === 1) {
+                    soloSkills.push(skills[0]);
+                }
+            }
+
+            // Multi-skill plugins as groups
+            for (const p of multiPlugins) {
+                const children = p.skills.map(s =>
+                    `<div class="sb-item sb-nested" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
+                ).join('');
+                html += `
+                    <div class="sb-group-wrap" data-path="${escapeHtml(p.path)}">
+                        <div class="sb-group">
+                            <span class="sb-toggle">▶</span>
+                            <span class="sb-group-name">${escapeHtml(p.name)}</span>
+                            <span class="sb-group-count">${p.skills.length}</span>
                         </div>
-                        <div class="plugin-group-children">${childrenHtml}</div>
+                        <div class="sb-group-children">${children}</div>
                     </div>`;
             }
 
-            // Divider between plugins and custom skills
+            // Solo plugin skills as flat items
+            for (const s of soloSkills) {
+                html += `<div class="sb-item" data-path="${escapeHtml(s.path)}" data-type="skill">${escapeHtml(s.name)}</div>`;
+            }
+
+            // User skills
             const customFiles = sources.custom.length > 0 ? (sources.custom[0].files || []) : [];
-            if (sources.plugins.length > 0 && customFiles.length > 0) {
-                skillsHtml += '<div class="source-divider"></div>';
+            if (customFiles.length > 0) {
+                total += customFiles.length;
+                html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">User Skills</span></div>`;
+                for (const f of customFiles) {
+                    html += `<div class="sb-item sb-nested" data-path="${escapeHtml(f.path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
+                }
             }
 
-            // Custom skills as flat items
-            for (const f of customFiles) {
-                totalSkills++;
-                skillsHtml += `
-                    <div class="source-item" data-path="${escapeHtml(f.path)}" data-type="skill">
-                        <div class="name">${escapeHtml(f.name)}<span class="source-type-label">custom</span></div>
-                    </div>`;
-            }
+            skillsCount.textContent = total;
+            skillsItems.innerHTML = html;
 
-            skillsCount.textContent = totalSkills;
-            skillsItems.innerHTML = skillsHtml;
-
-            // --- Commands section ---
+            // Commands
             const commandsItems = document.getElementById('commands-items');
             const commandsCount = document.getElementById('commands-count');
-            let cmdTotal = 0;
             let cmdHtml = '';
+            let cmdTotal = 0;
             for (const c of sources.commands) {
                 for (const f of (c.files || [])) {
                     cmdTotal++;
-                    cmdHtml += `
-                        <div class="source-item" data-path="${escapeHtml(f.path)}" data-type="command">
-                            <div class="name">${escapeHtml(f.name)}</div>
-                        </div>`;
+                    cmdHtml += `<div class="sb-item" data-path="${escapeHtml(f.path)}" data-type="command">${escapeHtml(f.name)}</div>`;
                 }
             }
             commandsCount.textContent = cmdTotal;
             commandsItems.innerHTML = cmdHtml;
-            if (cmdTotal === 0) document.getElementById('commands-section').style.display = 'none';
-            else document.getElementById('commands-section').style.display = '';
+            document.getElementById('commands-section').style.display = cmdTotal === 0 ? 'none' : '';
 
-            // --- Projects section ---
+            // Projects
             const projectItems = document.getElementById('project-items');
             const projectsCount = document.getElementById('projects-count');
             const projectCount = sources.projects ? sources.projects.length : 0;
             projectsCount.textContent = projectCount;
             if (projectCount > 0) {
                 projectItems.innerHTML = sources.projects.map(p => `
-                    <div class="source-item" data-path="${escapeHtml(p.path)}" data-type="project">
-                        <div class="name">${escapeHtml(p.name)}</div>
-                        <div class="path">${p.commandCount + p.skillCount} items</div>
+                    <div class="sb-item" data-path="${escapeHtml(p.path)}" data-type="project">
+                        ${escapeHtml(p.name)}<span class="sb-meta">${p.commandCount + p.skillCount}</span>
                         <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" title="Remove">✕</button>
                     </div>
                 `).join('');
@@ -1166,30 +1146,24 @@
 
             // --- Event handlers ---
 
-            // Plugin group expand/collapse
-            document.querySelectorAll('.plugin-group-header').forEach(header => {
-                header.addEventListener('click', (e) => {
-                    const group = header.closest('.plugin-group');
-                    const toggle = header.querySelector('.pg-toggle');
-                    const isExpanded = group.classList.toggle('expanded');
-                    toggle.textContent = isExpanded ? '▼' : '▶';
-
-                    // Also load the plugin's skills in the middle panel
-                    document.querySelectorAll('.source-item.active, .plugin-group-header.active').forEach(el => el.classList.remove('active'));
-                    header.classList.add('active');
-                    selectSource(group.dataset.path, header);
+            // Group expand/collapse + load middle panel
+            document.querySelectorAll('.sb-group-wrap > .sb-group').forEach(header => {
+                header.addEventListener('click', () => {
+                    const wrap = header.closest('.sb-group-wrap');
+                    const toggle = header.querySelector('.sb-toggle');
+                    const expanded = wrap.classList.toggle('expanded');
+                    toggle.textContent = expanded ? '▼' : '▶';
+                    selectSource(wrap.dataset.path, header);
                 });
             });
 
-            // Individual items (skills, commands, project sources)
-            document.querySelectorAll('.source-item').forEach(el => {
+            // All clickable items
+            document.querySelectorAll('.sb-item').forEach(el => {
                 el.addEventListener('click', (e) => {
                     if (e.target.classList.contains('remove-project-btn')) return;
-                    document.querySelectorAll('.source-item.active, .plugin-group-header.active').forEach(a => a.classList.remove('active'));
+                    clearActive();
                     el.classList.add('active');
-                    const type = el.dataset.type;
-                    if (type === 'skill' || type === 'command') {
-                        // Individual skill or command — load detail directly
+                    if (el.dataset.type === 'skill' || el.dataset.type === 'command') {
                         selectSkill(el.dataset.path);
                     } else {
                         selectSource(el.dataset.path, el);
@@ -1197,22 +1171,21 @@
                 });
             });
 
-            // Remove project handlers
+            // Remove project
             document.querySelectorAll('.remove-project-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const dir = btn.dataset.projectDir;
                     const res = await fetch('/api/projects', {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path: dir }),
+                        body: JSON.stringify({ path: btn.dataset.projectDir }),
                     });
                     const data = await res.json();
                     if (data.ok) renderSources(data.sources);
                 });
             });
 
-            // Section toggle handlers
+            // Section toggles
             document.querySelectorAll('.section-header').forEach(el => {
                 el.addEventListener('click', () => {
                     const items = el.nextElementSibling;
