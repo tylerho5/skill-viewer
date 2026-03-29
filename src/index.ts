@@ -349,22 +349,59 @@ export function getSources(index?: SkillIndex): SourceInfo {
       if (!latestVersion) continue;
       const skillsDir = path.join(latestVersion, "skills");
       if (!exists(skillsDir)) continue;
-      const count = readdir(skillsDir).filter((name) => {
-        const d = path.join(skillsDir, name);
-        return isDir(d) && exists(path.join(d, "SKILL.md"));
-      }).length;
+      const skills: { name: string; path: string }[] = [];
+      for (const skillName of readdir(skillsDir)) {
+        const d = path.join(skillsDir, skillName);
+        const skillFile = path.join(d, "SKILL.md");
+        if (!isDir(d) || !exists(skillFile)) continue;
+        try {
+          const content = readText(skillFile);
+          const fm = parseFrontmatter(content);
+          skills.push({ name: fm.name || skillName, path: skillFile });
+        } catch {
+          skills.push({ name: skillName, path: skillFile });
+        }
+      }
+      skills.sort((a, b) => a.name.localeCompare(b.name));
       sources.plugins.push({
         name: pluginName,
         path: skillsDir,
-        count,
+        count: skills.length,
         version: path.basename(latestVersion),
+        skills,
       });
     }
   }
 
   if (exists(CUSTOM_SKILLS_DIR)) {
-    const count = readdir(CUSTOM_SKILLS_DIR).filter((n) => isDir(path.join(CUSTOM_SKILLS_DIR, n))).length;
-    sources.custom.push({ name: "Custom Skills", path: CUSTOM_SKILLS_DIR, count });
+    const files: { name: string; path: string }[] = [];
+    for (const name of readdir(CUSTOM_SKILLS_DIR)) {
+      const itemPath = path.join(CUSTOM_SKILLS_DIR, name);
+      if (isDir(itemPath)) {
+        const skillFile = path.join(itemPath, "SKILL.md");
+        if (exists(skillFile)) {
+          try {
+            const content = readText(skillFile);
+            const fm = parseFrontmatter(content);
+            files.push({ name: fm.name || name, path: skillFile });
+          } catch {
+            files.push({ name, path: skillFile });
+          }
+        }
+      } else if (isFile(itemPath) && itemPath.endsWith(".md")) {
+        try {
+          const content = readText(itemPath);
+          const fm = parseFrontmatter(content);
+          files.push({ name: fm.name || name.replace(/\.md$/, ""), path: itemPath });
+        } catch {
+          files.push({ name: name.replace(/\.md$/, ""), path: itemPath });
+        }
+      }
+    }
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    if (files.length > 0) {
+      sources.custom.push({ name: "Custom Skills", path: CUSTOM_SKILLS_DIR, count: files.length, files });
+    }
   }
 
   if (exists(COMMANDS_DIR)) {

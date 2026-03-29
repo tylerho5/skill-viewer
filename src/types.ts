@@ -97,12 +97,14 @@ export interface PluginSource {
   path: string;
   count: number;
   version: string;
+  skills: { name: string; path: string }[];
 }
 
 export interface CustomSource {
   name: string;
   path: string;
   count: number;
+  files: { name: string; path: string }[];
 }
 
 export interface CommandSource {
