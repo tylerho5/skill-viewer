@@ -22,15 +22,17 @@ const AGENT_CONFIGS: AgentConfig[] = [
     fileExtensions: [".md"],
     hasPlugins: true,
     subdirs: ["skills", "commands"],
+    scanGlobalRoot: false,
   },
   {
     id: "gemini",
     name: "Gemini CLI",
     globalDir: path.join(os.homedir(), ".gemini"),
     projectDirName: ".gemini",
-    fileExtensions: [".md"],
+    fileExtensions: [".md", ".toml"],
     hasPlugins: false,
-    subdirs: [],
+    subdirs: ["skills", "commands"],
+    scanGlobalRoot: false,
   },
   {
     id: "opencode",
@@ -40,6 +42,7 @@ const AGENT_CONFIGS: AgentConfig[] = [
     fileExtensions: [".md"],
     hasPlugins: false,
     subdirs: ["skills", "commands", "agents"],
+    scanGlobalRoot: false,
   },
   {
     id: "codex",
@@ -48,7 +51,8 @@ const AGENT_CONFIGS: AgentConfig[] = [
     projectDirName: ".codex",
     fileExtensions: [".md"],
     hasPlugins: false,
-    subdirs: [],
+    subdirs: ["skills"],
+    scanGlobalRoot: false,
   },
   {
     id: "cursor",
@@ -58,6 +62,7 @@ const AGENT_CONFIGS: AgentConfig[] = [
     fileExtensions: [".md", ".mdc"],
     hasPlugins: false,
     subdirs: ["rules"],
+    scanGlobalRoot: false,
   },
   {
     id: "cline",
@@ -67,6 +72,7 @@ const AGENT_CONFIGS: AgentConfig[] = [
     fileExtensions: [".md", ".txt"],
     hasPlugins: false,
     subdirs: [],
+    scanGlobalRoot: true,
   },
 ];
 
@@ -310,11 +316,16 @@ export class SkillIndex {
     const globalDir = activeAgent.globalDir;
     if (!exists(globalDir) || !isDir(globalDir)) return;
 
-    if (activeAgent.subdirs.length === 0) return;
+    if (activeAgent.scanGlobalRoot) {
+      this.indexGenericDir(globalDir, "custom", activeAgent.name, true);
+    }
+
     for (const sub of activeAgent.subdirs) {
       const subDir = path.join(globalDir, sub);
       if (exists(subDir) && isDir(subDir)) {
-        this.indexGenericDir(subDir, "custom", activeAgent.name, true);
+        const sourceType = sub === "commands" ? "command" : "custom";
+        const sourceName = sub === "commands" ? "Commands" : activeAgent.name;
+        this.indexGenericDir(subDir, sourceType, sourceName, true);
       }
     }
   }
@@ -371,7 +382,8 @@ export class SkillIndex {
         for (const sub of activeAgent.subdirs) {
           const subDir = path.join(configDir, sub);
           if (exists(subDir) && isDir(subDir)) {
-            this.indexGenericDir(subDir, "project", projectName, true);
+            const sourceType = sub === "commands" ? "command" : "project";
+            this.indexGenericDir(subDir, sourceType, projectName, true);
           }
         }
       } else {
@@ -552,12 +564,22 @@ export function getSources(index?: SkillIndex): SourceInfo {
     }
   } else {
     // Non-Claude agents: build sources from indexed skills
-    const files = index ? index.skills
-      .filter((s) => s.sourceType === "custom")
-      .map((s) => ({ name: s.name, path: s.path }))
-      .sort((a, b) => a.name.localeCompare(b.name)) : [];
-    if (files.length > 0) {
-      sources.custom.push({ name: activeAgent.name, path: activeAgent.globalDir, count: files.length, files });
+    if (index) {
+      const skillFiles = index.skills
+        .filter((s) => s.sourceType === "custom")
+        .map((s) => ({ name: s.name, path: s.path }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (skillFiles.length > 0) {
+        sources.custom.push({ name: activeAgent.name, path: activeAgent.globalDir, count: skillFiles.length, files: skillFiles });
+      }
+
+      const cmdFiles = index.skills
+        .filter((s) => s.sourceType === "command")
+        .map((s) => ({ name: s.name, path: s.path }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (cmdFiles.length > 0) {
+        sources.commands.push({ name: "Commands", path: path.join(activeAgent.globalDir, "commands"), count: cmdFiles.length, files: cmdFiles });
+      }
     }
   }
 

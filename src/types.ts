@@ -122,4 +122,5 @@ export interface AgentConfig {
   fileExtensions: string[];
   hasPlugins: boolean;
   subdirs: string[];
+  scanGlobalRoot: boolean;
 }
