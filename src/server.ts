@@ -77,7 +77,7 @@ export function createApp(index: SkillIndex) {
       const body = stripFrontmatter(content);
 
       const response: Record<string, unknown> = {
-        name: frontmatter.name || path.basename(skillPath, path.extname(skillPath)),
+        name: frontmatter.name || (path.basename(skillPath) === "SKILL.md" ? path.basename(path.dirname(skillPath)) : path.basename(skillPath, path.extname(skillPath))),
         description: frontmatter.description || "",
         frontmatter,
         frontmatter_raw: frontmatterRaw,

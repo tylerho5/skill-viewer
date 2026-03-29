@@ -138,7 +138,7 @@ export class SkillIndex {
       const mt = mtime(filePath);
 
       const skill: IndexedSkill = {
-        name: frontmatter.name || path.basename(filePath, path.extname(filePath)),
+        name: frontmatter.name || (path.basename(filePath) === "SKILL.md" ? path.basename(path.dirname(filePath)) : path.basename(filePath, path.extname(filePath))),
         description: frontmatter.description || "",
         path: filePath,
         sourceType,
