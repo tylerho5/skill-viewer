@@ -56,6 +56,84 @@
             color: var(--text-muted);
         }
 
+        .agent-dropdown {
+            position: relative;
+        }
+
+        .agent-dropdown-toggle {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px 4px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .agent-dropdown-toggle:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .agent-dropdown.open .agent-dropdown-toggle {
+            background: var(--bg-primary);
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .agent-dropdown-arrow {
+            font-size: 10px;
+            opacity: 0.6;
+        }
+
+        .agent-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 160px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .agent-dropdown.open .agent-dropdown-menu {
+            display: block;
+        }
+
+        .agent-dropdown-item {
+            padding: 7px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .agent-dropdown-item:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .agent-dropdown-item.active {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .agent-dropdown-item.active::after {
+            content: '\2713';
+            font-size: 12px;
+        }
+
         .container {
             display: grid;
             grid-template-columns: 220px 320px 1fr;
@@ -935,17 +1013,13 @@
         </div>
         <span class="status" id="status">Loading...</span>
         <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-            <select id="agent-select" style="
-                background: var(--bg-secondary);
-                border: 1px solid var(--border);
-                border-radius: 6px;
-                padding: 4px 10px;
-                cursor: pointer;
-                font-size: 13px;
-                color: var(--text-secondary);
-                outline: none;
-            ">
-            </select>
+            <div class="agent-dropdown" id="agent-dropdown">
+                <button class="agent-dropdown-toggle" id="agent-dropdown-toggle">
+                    <span id="agent-dropdown-label">Claude Code</span>
+                    <span class="agent-dropdown-arrow">&#x25BE;</span>
+                </button>
+                <div class="agent-dropdown-menu" id="agent-dropdown-menu"></div>
+            </div>
             <button id="graph-toggle" title="Dependency Graph" style="
                 background: var(--bg-secondary);
                 border: 1px solid var(--border);
@@ -2009,22 +2083,45 @@
         });
 
         // Agent switcher
-        const agentSelect = document.getElementById('agent-select');
+        const agentDropdown = document.getElementById('agent-dropdown');
+        const agentToggle = document.getElementById('agent-dropdown-toggle');
+        const agentMenu = document.getElementById('agent-dropdown-menu');
+        const agentLabel = document.getElementById('agent-dropdown-label');
+        let activeAgentId = null;
+
+        agentToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            agentDropdown.classList.toggle('open');
+        });
+
+        document.addEventListener('click', () => {
+            agentDropdown.classList.remove('open');
+        });
 
         async function loadAgents() {
             try {
                 const res = await fetch('/api/agents');
                 const data = await res.json();
-                agentSelect.innerHTML = data.agents.map(a =>
-                    `<option value="${escapeHtml(a.id)}" ${a.id === data.active_id ? 'selected' : ''}>${escapeHtml(a.name)}</option>`
+                activeAgentId = data.active_id;
+                const active = data.agents.find(a => a.id === data.active_id);
+                if (active) agentLabel.textContent = active.name;
+                agentMenu.innerHTML = data.agents.map(a =>
+                    `<div class="agent-dropdown-item ${a.id === data.active_id ? 'active' : ''}" data-id="${escapeHtml(a.id)}">${escapeHtml(a.name)}</div>`
                 ).join('');
+                agentMenu.querySelectorAll('.agent-dropdown-item').forEach(item => {
+                    item.addEventListener('click', () => switchAgent(item.dataset.id));
+                });
             } catch (err) {
                 console.error('Failed to load agents:', err);
             }
         }
 
-        agentSelect.addEventListener('change', async () => {
-            const agentId = agentSelect.value;
+        async function switchAgent(agentId) {
+            if (agentId === activeAgentId) {
+                agentDropdown.classList.remove('open');
+                return;
+            }
+            agentDropdown.classList.remove('open');
             statusEl.textContent = 'Switching agent...';
             currentSource = null;
             currentSkills = [];
@@ -2039,6 +2136,11 @@
                 });
                 const data = await res.json();
                 if (data.ok) {
+                    activeAgentId = agentId;
+                    agentLabel.textContent = agentMenu.querySelector(`[data-id="${agentId}"]`).textContent;
+                    agentMenu.querySelectorAll('.agent-dropdown-item').forEach(el => {
+                        el.classList.toggle('active', el.dataset.id === agentId);
+                    });
                     sources = data.sources;
                     renderSources(sources);
                     skillsList.innerHTML = '<div class="empty-state">Select a source</div>';
@@ -2050,7 +2152,7 @@
             } catch (err) {
                 statusEl.textContent = `Error: ${err.message}`;
             }
-        });
+        }
 
         // Initialize
         async function init() {
