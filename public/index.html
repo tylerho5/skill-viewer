@@ -1096,6 +1096,11 @@
                 }
             }
 
+            // Plugins
+            if (multiPlugins.length > 0 || soloSkills.length > 0) {
+                html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">Plugins</span></div>`;
+            }
+
             // Multi-skill plugins as groups
             for (const p of multiPlugins) {
                 const children = p.skills.map(s =>
