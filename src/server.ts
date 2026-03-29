@@ -13,6 +13,45 @@ function extractWildcard(params: Record<string, unknown>): string {
   return raw.startsWith("/") ? raw : "/" + raw;
 }
 
+interface RefEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: RefEntry[];
+}
+
+function getReferenceFiles(skillPath: string): RefEntry[] {
+  const skillDir = path.dirname(skillPath);
+  const skillName = path.basename(skillPath);
+  const refs: RefEntry[] = [];
+
+  let items: string[];
+  try { items = fs.readdirSync(skillDir); } catch { return refs; }
+
+  for (const name of items.sort()) {
+    if (name.startsWith(".")) continue;
+    const full = path.join(skillDir, name);
+    try {
+      const stat = fs.statSync(full);
+      if (stat.isFile() && name !== skillName && name.endsWith(".md")) {
+        refs.push({ name, path: full, type: "file" });
+      } else if (stat.isDirectory()) {
+        const children: RefEntry[] = [];
+        for (const sub of fs.readdirSync(full).sort()) {
+          const subFull = path.join(full, sub);
+          if (fs.statSync(subFull).isFile() && sub.endsWith(".md")) {
+            children.push({ name: sub, path: subFull, type: "file" });
+          }
+        }
+        if (children.length > 0) {
+          refs.push({ name, path: full, type: "directory", children });
+        }
+      }
+    } catch { continue; }
+  }
+  return refs;
+}
+
 export function createApp(index: SkillIndex) {
   const app = express();
 
@@ -79,7 +118,7 @@ export function createApp(index: SkillIndex) {
         frontmatter_raw: frontmatterRaw,
         content: body,
         path: skillPath,
-        references: [],
+        references: getReferenceFiles(skillPath),
       };
 
       const indexed = index.get(skillPath);

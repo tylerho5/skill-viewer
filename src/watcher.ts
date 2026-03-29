@@ -10,6 +10,10 @@ export function setupWebSocket(server: Server): {
   const wss = new WebSocketServer({ server, path: "/ws" });
   const clients = new Set<WebSocket>();
 
+  wss.on("error", (err) => {
+    console.error("WebSocket server error:", err.message);
+  });
+
   wss.on("connection", (ws) => {
     clients.add(ws);
     ws.on("close", () => clients.delete(ws));

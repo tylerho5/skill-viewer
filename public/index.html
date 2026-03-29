@@ -993,6 +993,10 @@
         let activeTagFilters = new Set();
 
         // API calls
+        function encodePathForUrl(p) {
+            return p.split('/').map(s => encodeURIComponent(s)).join('/');
+        }
+
         async function fetchSources() {
             const res = await fetch('/api/sources');
             return res.json();
@@ -1004,12 +1008,12 @@
         }
 
         async function fetchSkill(skillPath) {
-            const res = await fetch(`/api/skill/${encodeURIComponent(skillPath)}`);
+            const res = await fetch(`/api/skill${encodePathForUrl(skillPath)}`);
             return res.json();
         }
 
         async function fetchReference(refPath) {
-            const res = await fetch(`/api/reference/${encodeURIComponent(refPath)}`);
+            const res = await fetch(`/api/reference${encodePathForUrl(refPath)}`);
             return res.json();
         }
 
@@ -1250,7 +1254,7 @@
                             treeContainer.innerHTML = '<div class="loading" style="padding:8px;font-size:12px;">Loading...</div>';
                             try {
                                 const dirPath = el.dataset.treeDir;
-                                const res = await fetch(`/api/skill-tree/${encodeURIComponent(dirPath)}`);
+                                const res = await fetch(`/api/skill-tree${encodePathForUrl(dirPath)}`);
                                 const data = await res.json();
                                 if (data.tree && data.tree.length > 0) {
                                     treeContainer.innerHTML = renderFileTree(data.tree);

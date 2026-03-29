@@ -26,6 +26,9 @@ skill-viewer
 | Plugins | `~/.claude/plugins/cache/claude-plugins-official/` |
 | Custom skills | `~/.claude/skills/` |
 | Commands | `~/.claude/commands/` |
+| Project skills | `<project>/.claude/commands/` and `<project>/.claude/skills/` |
+
+Project directories can be added dynamically via the UI or the `POST /api/projects` endpoint. The viewer will scan for commands and skills inside each project's `.claude/` directory.
 
 ## Options
 
