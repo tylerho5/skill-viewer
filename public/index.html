@@ -115,39 +115,102 @@
             font-size: 10px;
         }
 
-        .sources-panel .source-item {
+        /* Sidebar item — every clickable leaf in the sidebar */
+        .sb-item {
             position: relative;
-            padding: 6px 12px 6px 24px;
+            padding: 3px 12px 3px 20px;
             cursor: pointer;
-            border-left: 3px solid transparent;
-            transition: all 0.15s ease;
-        }
-
-        .sources-panel .source-item:hover {
-            background: var(--bg-tertiary);
-            border-left-color: var(--accent);
-        }
-
-        .sources-panel .source-item.active {
-            background: var(--bg-tertiary);
-            border-left-color: var(--accent);
-        }
-
-        .sources-panel .source-item .name {
             font-size: 13px;
-            margin-bottom: 1px;
-        }
-
-        .sources-panel .source-item .path {
-            font-size: 11px;
-            color: var(--text-muted);
+            color: var(--text-primary);
+            border-left: 3px solid transparent;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
+        .sb-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .sb-item.active {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent);
+        }
+
+        /* Source-type left border indicators */
+        .sb-item.sb-plugin {
+            border-left-color: #c8d6e5;
+        }
+
+        .sb-item.sb-user {
+            border-left-color: #d5c4f2;
+        }
+
+        .sb-item.sb-plugin.active {
+            border-left-color: var(--accent);
+        }
+
+        .sb-item.sb-user.active {
+            border-left-color: var(--accent);
+        }
+
+        /* Nested items under a group */
+        .sb-item.sb-nested {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        /* Group header — small muted uppercase label with toggle */
+        .sb-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px 2px 14px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sb-group:hover {
+            color: var(--text-secondary);
+        }
+
+        .sb-group .sb-toggle {
+            font-size: 8px;
+            width: 8px;
+        }
+
+        .sb-group .sb-group-name {
+            flex: 1;
+        }
+
+        .sb-group .sb-group-count {
+            font-size: 10px;
+            font-weight: 400;
+        }
+
+        .sb-group-children {
+            display: none;
+        }
+
+        .sb-group-wrap.expanded > .sb-group-children {
+            display: block;
+        }
+
+        /* Meta text (e.g. item count on projects) */
+        .sb-meta {
+            float: right;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* Project add form */
         .project-add-form {
-            padding: 6px 12px 6px 24px;
+            padding: 6px 12px 6px 20px;
         }
 
         .project-add-row {
@@ -209,16 +272,15 @@
             padding: 2px 4px;
             border-radius: 3px;
             opacity: 0;
-            transition: opacity 0.15s;
+            transition: opacity 0.1s;
         }
 
-        .source-item:hover .remove-project-btn {
+        .sb-item:hover .remove-project-btn {
             opacity: 1;
         }
 
         .remove-project-btn:hover {
             color: #cc3333;
-            background: var(--bg-tertiary);
         }
 
         /* Skills Panel */
@@ -886,26 +948,21 @@
     <div class="container">
         <!-- Sources Panel -->
         <div class="panel sources-panel" id="sources-panel">
-            <div class="section" id="plugins-section">
+            <div class="section" id="skills-section">
                 <div class="section-header">
                     <span class="toggle">▼</span>
-                    Plugins
+                    Skills
+                    <span class="count" id="skills-count">0</span>
                 </div>
-                <div class="section-items"></div>
-            </div>
-            <div class="section" id="custom-section">
-                <div class="section-header">
-                    <span class="toggle">▼</span>
-                    Custom
-                </div>
-                <div class="section-items"></div>
+                <div class="section-items" id="skills-items"></div>
             </div>
             <div class="section" id="commands-section">
                 <div class="section-header">
                     <span class="toggle">▼</span>
                     Commands
+                    <span class="count" id="commands-count">0</span>
                 </div>
-                <div class="section-items"></div>
+                <div class="section-items" id="commands-items"></div>
             </div>
             <div class="section" id="projects-section">
                 <div class="section-header">
@@ -914,6 +971,7 @@
                     <span class="count" id="projects-count">0</span>
                 </div>
                 <div class="section-items">
+                    <div id="project-items"></div>
                     <div class="project-add-form">
                         <div class="project-add-row">
                             <input type="text" id="project-dir-input" placeholder="/path/to/project">
@@ -921,7 +979,6 @@
                         </div>
                         <div class="project-error" id="project-error"></div>
                     </div>
-                    <div id="project-items"></div>
                 </div>
             </div>
         </div>
@@ -1003,116 +1060,159 @@
             return res.json();
         }
 
+        function encodePathForUrl(p) { return p.split('/').map(s => encodeURIComponent(s)).join('/'); }
+
         async function fetchSkill(skillPath) {
-            const res = await fetch(`/api/skill/${encodeURIComponent(skillPath)}`);
+            const res = await fetch(`/api/skill/${encodePathForUrl(skillPath)}`);
             return res.json();
         }
 
         async function fetchReference(refPath) {
-            const res = await fetch(`/api/reference/${encodeURIComponent(refPath)}`);
+            const res = await fetch(`/api/reference/${encodePathForUrl(refPath)}`);
             return res.json();
         }
 
         // Render functions
+        function clearActive() {
+            document.querySelectorAll('.sb-item.active').forEach(el => el.classList.remove('active'));
+        }
+
         function renderSources(sources) {
-            // Plugins
-            const pluginsSection = document.getElementById('plugins-section');
-            const pluginsItems = pluginsSection.querySelector('.section-items');
-            if (sources.plugins.length > 0) {
-                pluginsSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Plugins
-                    <span class="count">${sources.plugins.length}</span>
-                `;
-                pluginsItems.innerHTML = sources.plugins.map(p => `
-                    <div class="source-item" data-path="${p.path}" data-type="plugin">
-                        <div class="name">${p.name}</div>
-                        <div class="path">${p.count} skills · v${p.version}</div>
-                    </div>
-                `).join('');
-            } else {
-                pluginsSection.style.display = 'none';
+            const skillsItems = document.getElementById('skills-items');
+            const skillsCount = document.getElementById('skills-count');
+            let html = '';
+            let total = 0;
+
+            // Separate single-skill and multi-skill plugins
+            const multiPlugins = [];
+            const soloSkills = [];
+            for (const p of sources.plugins) {
+                const skills = p.skills || [];
+                total += skills.length;
+                if (skills.length > 1) {
+                    multiPlugins.push(p);
+                } else if (skills.length === 1) {
+                    soloSkills.push({ ...skills[0], sourcePath: p.path });
+                }
             }
 
-            // Custom
-            const customSection = document.getElementById('custom-section');
-            const customItems = customSection.querySelector('.section-items');
-            if (sources.custom.length > 0) {
-                customSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Custom
-                    <span class="count">${sources.custom[0].count}</span>
-                `;
-                customItems.innerHTML = sources.custom.map(c => `
-                    <div class="source-item" data-path="${c.path}" data-type="custom">
-                        <div class="name">${c.name}</div>
-                        <div class="path">${c.count} skills</div>
-                    </div>
-                `).join('');
-            } else {
-                customSection.style.display = 'none';
+            // Plugins
+            if (multiPlugins.length > 0 || soloSkills.length > 0) {
+                html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">Plugins</span></div>`;
             }
+
+            // Multi-skill plugins as groups
+            for (const p of multiPlugins) {
+                const children = p.skills.map(s =>
+                    `<div class="sb-item sb-nested sb-plugin" data-path="${escapeHtml(s.path)}" data-source="${escapeHtml(p.path)}" data-type="skill">${escapeHtml(s.name)}</div>`
+                ).join('');
+                html += `
+                    <div class="sb-group-wrap" data-path="${escapeHtml(p.path)}">
+                        <div class="sb-group">
+                            <span class="sb-toggle">▶</span>
+                            <span class="sb-group-name">${escapeHtml(p.name)}</span>
+                            <span class="sb-group-count">${p.skills.length}</span>
+                        </div>
+                        <div class="sb-group-children">${children}</div>
+                    </div>`;
+            }
+
+            // Solo plugin skills as flat items
+            for (const s of soloSkills) {
+                html += `<div class="sb-item sb-plugin" data-path="${escapeHtml(s.path)}" data-source="${escapeHtml(s.sourcePath)}" data-type="skill">${escapeHtml(s.name)}</div>`;
+            }
+
+            // User skills
+            const customFiles = sources.custom.length > 0 ? (sources.custom[0].files || []) : [];
+            if (customFiles.length > 0) {
+                total += customFiles.length;
+                html += `<div class="sb-group" style="pointer-events:none;"><span class="sb-group-name">User Skills</span></div>`;
+                for (const f of customFiles) {
+                    html += `<div class="sb-item sb-nested sb-user" data-path="${escapeHtml(f.path)}" data-source="${escapeHtml(sources.custom[0].path)}" data-type="skill">${escapeHtml(f.name)}</div>`;
+                }
+            }
+
+            skillsCount.textContent = total;
+            skillsItems.innerHTML = html;
 
             // Commands
-            const commandsSection = document.getElementById('commands-section');
-            const commandsItems = commandsSection.querySelector('.section-items');
-            if (sources.commands.length > 0) {
-                commandsSection.querySelector('.section-header').innerHTML = `
-                    <span class="toggle">▼</span>
-                    Commands
-                    <span class="count">${sources.commands[0].count}</span>
-                `;
-                commandsItems.innerHTML = sources.commands.map(c => `
-                    <div class="source-item" data-path="${c.path}" data-type="commands">
-                        <div class="name">${c.name}</div>
-                        <div class="path">${c.count} commands</div>
-                    </div>
-                `).join('');
-            } else {
-                commandsSection.style.display = 'none';
+            const commandsItems = document.getElementById('commands-items');
+            const commandsCount = document.getElementById('commands-count');
+            let cmdHtml = '';
+            let cmdTotal = 0;
+            for (const c of sources.commands) {
+                for (const f of (c.files || [])) {
+                    cmdTotal++;
+                    cmdHtml += `<div class="sb-item" data-path="${escapeHtml(f.path)}" data-source="${escapeHtml(c.path)}" data-type="command">${escapeHtml(f.name)}</div>`;
+                }
             }
+            commandsCount.textContent = cmdTotal;
+            commandsItems.innerHTML = cmdHtml;
+            document.getElementById('commands-section').style.display = cmdTotal === 0 ? 'none' : '';
 
             // Projects
             const projectItems = document.getElementById('project-items');
             const projectsCount = document.getElementById('projects-count');
-            if (sources.projects && sources.projects.length > 0) {
-                projectsCount.textContent = sources.projects.length;
+            const projectCount = sources.projects ? sources.projects.length : 0;
+            projectsCount.textContent = projectCount;
+            if (projectCount > 0) {
                 projectItems.innerHTML = sources.projects.map(p => `
-                    <div class="source-item" data-path="${p.path}" data-type="project">
-                        <div class="name">${escapeHtml(p.name)}</div>
-                        <div class="path">${p.commandCount + p.skillCount} items</div>
+                    <div class="sb-item" data-path="${escapeHtml(p.path)}" data-type="project">
+                        ${escapeHtml(p.name)}<span class="sb-meta">${p.commandCount + p.skillCount}</span>
                         <button class="remove-project-btn" data-project-dir="${escapeHtml(p.projectDir)}" title="Remove">✕</button>
                     </div>
                 `).join('');
             } else {
-                projectsCount.textContent = '0';
                 projectItems.innerHTML = '';
             }
 
-            // Add click handlers
-            document.querySelectorAll('.source-item').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('remove-project-btn')) return;
-                    selectSource(el.dataset.path, el);
+            // --- Event handlers ---
+
+            // Group expand/collapse + load middle panel
+            document.querySelectorAll('.sb-group-wrap > .sb-group').forEach(header => {
+                header.addEventListener('click', () => {
+                    const wrap = header.closest('.sb-group-wrap');
+                    const toggle = header.querySelector('.sb-toggle');
+                    const expanded = wrap.classList.toggle('expanded');
+                    toggle.textContent = expanded ? '▼' : '▶';
+                    selectSource(wrap.dataset.path, header);
                 });
             });
 
-            // Remove project handlers
+            // All clickable items
+            document.querySelectorAll('.sb-item').forEach(el => {
+                el.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('remove-project-btn')) return;
+                    clearActive();
+                    el.classList.add('active');
+                    if (el.dataset.type === 'skill' || el.dataset.type === 'command') {
+                        const sourcePath = el.dataset.source;
+                        if (sourcePath && sourcePath !== currentSource) {
+                            await selectSource(sourcePath, el);
+                        }
+                        selectSkill(el.dataset.path);
+                        scrollMiddleToSkill(el.dataset.path);
+                    } else {
+                        selectSource(el.dataset.path, el);
+                    }
+                });
+            });
+
+            // Remove project
             document.querySelectorAll('.remove-project-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const dir = btn.dataset.projectDir;
                     const res = await fetch('/api/projects', {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ path: dir }),
+                        body: JSON.stringify({ path: btn.dataset.projectDir }),
                     });
                     const data = await res.json();
                     if (data.ok) renderSources(data.sources);
                 });
             });
 
-            // Add toggle handlers
+            // Section toggles
             document.querySelectorAll('.section-header').forEach(el => {
                 el.addEventListener('click', () => {
                     const items = el.nextElementSibling;
@@ -1147,14 +1247,14 @@
             if (skill.structural_tags) {
                 skill.structural_tags.forEach(tag => {
                     const label = tag.replace('has-', '').replace('-', ' ');
-                    badges += `<span class="badge tag">${label}</span>`;
+                    badges += `<span class="badge tag">${escapeHtml(label)}</span>`;
                 });
             }
 
             if (skill.health.completeness_gaps) {
                 skill.health.completeness_gaps.forEach(gap => {
                     const label = gap.replace('-', ' ');
-                    badges += `<span class="badge gap">${label}</span>`;
+                    badges += `<span class="badge gap">${escapeHtml(label)}</span>`;
                 });
             }
 
@@ -1177,12 +1277,12 @@
             skillsList.innerHTML = filtered.map(s => {
                 const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
                 return `
-                <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                <div class="skill-item" data-path="${escapeHtml(s.path)}" data-tree-dir="${escapeHtml(treeDir)}">
                     <div class="skill-header">
                         <span class="skill-toggle">&#9654;</span>
                         <div class="skill-info">
-                            <div class="name">${s.name}</div>
-                            <div class="description">${s.description || 'No description'}</div>
+                            <div class="name">${escapeHtml(s.name)}</div>
+                            <div class="description">${escapeHtml(s.description || 'No description')}</div>
                             ${getHealthBadges(s)}
                         </div>
                     </div>
@@ -1224,7 +1324,7 @@
             tagFiltersEl.innerHTML = tags.map(([tag, count]) => {
                 const label = tag.replace('has-', '').replace('tool:', '');
                 const isActive = activeTagFilters.has(tag);
-                return `<span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${tag}">${label} (${count})</span>`;
+                return `<span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${escapeHtml(tag)}">${escapeHtml(label)} (${count})</span>`;
             }).join('');
         }
 
@@ -1250,7 +1350,7 @@
                             treeContainer.innerHTML = '<div class="loading" style="padding:8px;font-size:12px;">Loading...</div>';
                             try {
                                 const dirPath = el.dataset.treeDir;
-                                const res = await fetch(`/api/skill-tree/${encodeURIComponent(dirPath)}`);
+                                const res = await fetch(`/api/skill-tree/${encodePathForUrl(dirPath)}`);
                                 const data = await res.json();
                                 if (data.tree && data.tree.length > 0) {
                                     treeContainer.innerHTML = renderFileTree(data.tree);
@@ -1345,12 +1445,12 @@
                 skillsList.innerHTML = filtered.map(s => {
                     const treeDir = s.skill_dir || s.path.substring(0, s.path.lastIndexOf('/'));
                     return `
-                    <div class="skill-item" data-path="${s.path}" data-tree-dir="${treeDir}">
+                    <div class="skill-item" data-path="${escapeHtml(s.path)}" data-tree-dir="${escapeHtml(treeDir)}">
                         <div class="skill-header">
                             <span class="skill-toggle">&#9654;</span>
                             <div class="skill-info">
-                                <div class="name">${s.name}</div>
-                                <div class="description">${s.description || 'No description'}</div>
+                                <div class="name">${escapeHtml(s.name)}</div>
+                                <div class="description">${escapeHtml(s.description || 'No description')}</div>
                                 ${getHealthBadges(s)}
                             </div>
                         </div>
@@ -1400,9 +1500,9 @@
             detailPanel.innerHTML = `
                 <div class="detail-content">
                     <div class="detail-header">
-                        <h2>${skill.name}</h2>
-                        <div class="description">${skill.description || 'No description'}</div>
-                        <div class="path">${skill.path}</div>
+                        <h2>${escapeHtml(skill.name)}</h2>
+                        <div class="description">${escapeHtml(skill.description || 'No description')}</div>
+                        <div class="path">${escapeHtml(skill.path)}</div>
                     </div>
 
                     <div class="section-title">Metadata</div>
@@ -1453,10 +1553,10 @@
                 if (entry.type === 'directory') {
                     const childrenId = `tree-${entry.path.replace(/[^a-zA-Z0-9]/g, '-')}`;
                     return `
-                        <div class="file-tree-item directory" data-tree-path="${entry.path}" data-children-id="${childrenId}">
+                        <div class="file-tree-item directory" data-tree-path="${escapeHtml(entry.path)}" data-children-id="${childrenId}">
                             ${indent}
                             <span class="icon">${icon}</span>
-                            <span class="name">${entry.name}/</span>
+                            <span class="name">${escapeHtml(entry.name)}/</span>
                         </div>
                         <div class="file-tree-children" id="${childrenId}">
                             ${entry.children ? renderFileTree(entry.children, depth + 1) : ''}
@@ -1464,10 +1564,10 @@
                     `;
                 } else {
                     return `
-                        <div class="file-tree-item file" data-tree-file-path="${entry.path}" data-ext="${entry.extension || ''}">
+                        <div class="file-tree-item file" data-tree-file-path="${escapeHtml(entry.path)}" data-ext="${escapeHtml(entry.extension || '')}">
                             ${indent}
                             <span class="icon">${icon}</span>
-                            <span class="name">${entry.name}</span>
+                            <span class="name">${escapeHtml(entry.name)}</span>
                             ${sizeStr}
                         </div>
                     `;
@@ -1513,6 +1613,15 @@
         }
 
         // Event handlers
+        function scrollMiddleToSkill(skillPath) {
+            const item = document.querySelector(`.skill-item[data-path="${CSS.escape(skillPath)}"]`);
+            if (item) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.querySelectorAll('.skill-item').forEach(e => e.classList.remove('active'));
+                item.classList.add('active');
+            }
+        }
+
         async function selectSource(path, el) {
             // Update active state
             document.querySelectorAll('.source-item').forEach(e => e.classList.remove('active'));
@@ -1533,14 +1642,14 @@
                 renderTagFilters(currentSkills);
                 statusEl.textContent = `${currentSkills.length} skills loaded`;
             } catch (err) {
-                skillsList.innerHTML = `<div class="error">Error loading skills: ${err.message}</div>`;
+                skillsList.innerHTML = `<div class="error">Error loading skills: ${escapeHtml(err.message)}</div>`;
             }
         }
 
         async function selectSkill(path, el) {
             // Update active state
             document.querySelectorAll('.skill-item').forEach(e => e.classList.remove('active'));
-            el.classList.add('active');
+            if (el) el.classList.add('active');
 
             currentSkill = path;
 
@@ -1553,7 +1662,7 @@
                 renderSkillDetail(skill);
                 statusEl.textContent = `Viewing: ${skill.name}`;
             } catch (err) {
-                detailPanel.innerHTML = `<div class="error">Error loading skill: ${err.message}</div>`;
+                detailPanel.innerHTML = `<div class="error">Error loading skill: ${escapeHtml(err.message)}</div>`;
             }
         }
 
@@ -1632,7 +1741,7 @@
                     highlightDetailPanel();
                     statusEl.textContent = `Viewing: ${ref.name}`;
                 } catch (err) {
-                    detailPanel.innerHTML = `<div class="error">Error loading reference: ${err.message}</div>`;
+                    detailPanel.innerHTML = `<div class="error">Error loading reference: ${escapeHtml(err.message)}</div>`;
                 }
             }
         });
@@ -1653,7 +1762,7 @@
                     const results = await res.json();
                     renderGlobalSearchResults(results);
                 } catch (err) {
-                    globalSearchResults.innerHTML = `<div class="search-result-item"><div class="result-name">Error: ${err.message}</div></div>`;
+                    globalSearchResults.innerHTML = `<div class="search-result-item"><div class="result-name">Error: ${escapeHtml(err.message)}</div></div>`;
                     globalSearchResults.classList.add('active');
                 }
             }, 250);
@@ -1664,7 +1773,7 @@
                 globalSearchResults.innerHTML = '<div class="search-result-item"><div class="result-name" style="color: var(--text-muted)">No results</div></div>';
             } else {
                 globalSearchResults.innerHTML = results.slice(0, 20).map(r => `
-                    <div class="search-result-item" data-path="${r.path}">
+                    <div class="search-result-item" data-path="${escapeHtml(r.path)}">
                         <div class="result-name">${escapeHtml(r.name)}</div>
                         <div class="result-source">${escapeHtml(r.source_name)} &middot; ${r.source_type}</div>
                         <div class="result-snippet">${escapeHtml(r.snippet)}</div>
@@ -1689,7 +1798,7 @@
                 currentSkill = item.dataset.path;
                 statusEl.textContent = `Viewing: ${skill.name}`;
             } catch (err) {
-                detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+                detailPanel.innerHTML = `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
             }
         });
 
@@ -1729,7 +1838,7 @@
                     const res = await fetch('/api/graph');
                     graphData = await res.json();
                 } catch (err) {
-                    graphOverlay.innerHTML = `<div class="error" style="margin:20px">Error loading graph: ${err.message}</div>`;
+                    graphOverlay.innerHTML = `<div class="error" style="margin:20px">Error loading graph: ${escapeHtml(err.message)}</div>`;
                     return;
                 }
             }
@@ -1826,7 +1935,7 @@
                     currentSkill = d.id;
                     statusEl.textContent = `Viewing: ${skill.name}`;
                 } catch (err) {
-                    detailPanel.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+                    detailPanel.innerHTML = `<div class="error">Error: ${escapeHtml(err.message)}</div>`;
                 }
             });
 
@@ -1890,7 +1999,7 @@
                 statusEl.textContent = 'Ready';
             } catch (err) {
                 statusEl.textContent = `Error: ${err.message}`;
-                sourcesPanel.innerHTML = `<div class="error">Error loading sources: ${err.message}</div>`;
+                sourcesPanel.innerHTML = `<div class="error">Error loading sources: ${escapeHtml(err.message)}</div>`;
             }
         }
 

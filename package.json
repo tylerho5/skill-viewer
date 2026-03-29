@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/cli.ts",
+    "dev": "tsx watch src/cli.ts",
     "start": "node dist/cli.js"
   },
   "keywords": ["claude", "claude-code", "skills", "viewer", "mcp"],
