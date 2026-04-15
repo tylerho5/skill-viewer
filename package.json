@@ -1,9 +1,9 @@
 {
   "name": "skill-viewer",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Browse and inspect Claude Code skills installed in ~/.claude/",
   "bin": {
-    "skill-viewer": "./dist/cli.js"
+    "skill-viewer": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -14,7 +14,13 @@
     "dev": "tsx watch src/cli.ts",
     "start": "node dist/cli.js"
   },
-  "keywords": ["claude", "claude-code", "skills", "viewer", "mcp"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "skills",
+    "viewer",
+    "mcp"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
