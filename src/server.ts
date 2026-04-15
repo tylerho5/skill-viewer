@@ -62,7 +62,8 @@ export function createApp(index: SkillIndex) {
   // Serve frontend
   const publicDir = path.resolve(__dirname, "..", "public");
   app.get("/", (_req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
+    const html = fs.readFileSync(path.join(publicDir, "index.html"), "utf-8");
+    res.type("html").send(html);
   });
 
   // --- API Routes ---

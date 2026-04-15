@@ -80,13 +80,15 @@ server.on("error", (err: NodeJS.ErrnoException) => {
   throw err;
 });
 
+let shuttingDown = false;
 function shutdown() {
+  if (shuttingDown) { process.exit(0); }
+  shuttingDown = true;
   console.log("Shutting down...");
-  server.close(() => {
-    wss.close(() => {
-      watcher.close().then(() => process.exit(0)).catch(() => process.exit(1));
-    });
-  });
+  wss.clients.forEach((ws) => ws.terminate());
+  wss.close();
+  server.close();
+  watcher.close().finally(() => process.exit(0));
 }
 
 process.on("SIGTERM", shutdown);
