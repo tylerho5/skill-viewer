@@ -7,6 +7,7 @@ import { createSkillsListPane } from "./panes/skillsList.js";
 import { createDetailPane } from "./panes/detail.js";
 import { createGlobalSearchOverlay } from "./overlays/globalSearch.js";
 import { createAgentSwitcherOverlay } from "./overlays/agentSwitcher.js";
+import { createHelpOverlay } from "./overlays/help.js";
 import type { FocusedPane } from "./state.js";
 
 export async function run(): Promise<void> {
@@ -116,8 +117,11 @@ export async function run(): Promise<void> {
     if (state.focus === "list") skillsPane.toggleTagRow();
   });
 
+  const helpOverlay = createHelpOverlay(panes.screen);
+
   panes.screen.key(["C-p"], () => searchOverlay.open());
   panes.screen.key(["a"], () => agentSwitcher.open());
+  panes.screen.key(["?"], () => helpOverlay.open());
 
   panes.screen.key(["tab"], () => {
     const i = order.indexOf(state.focus);
