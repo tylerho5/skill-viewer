@@ -65,6 +65,11 @@ export async function run(): Promise<void> {
     watcher.switchAgent();
   };
 
+  panes.screen.key(["/"], () => {
+    if (state.focus !== "list") setFocus("list");
+    skillsPane.showFilter();
+  });
+
   panes.screen.key(["tab"], () => {
     const i = order.indexOf(state.focus);
     setFocus(order[(i + 1) % order.length]);

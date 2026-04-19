@@ -10,6 +10,8 @@ export interface SkillsListHandle {
   refresh(): void;
   focus(): void;
   onSelect(cb: (skillPath: string) => void): void;
+  showFilter(): void;
+  hideFilter(): void;
 }
 
 export function createSkillsListPane(
@@ -20,6 +22,17 @@ export function createSkillsListPane(
   let filter = "";
   let skills: SkillSummary[] = [];
   let cb: (p: string) => void = () => {};
+
+  const filterBox = blessed.textbox({
+    parent: container,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    hidden: true,
+    style: { bg: "black", fg: "white" },
+    inputOnFocus: true,
+  });
 
   const list = blessed.list({
     parent: container,
@@ -64,11 +77,44 @@ export function createSkillsListPane(
     if (s) cb(s.path);
   });
 
+  filterBox.on("keypress", (_ch: string, key: { name: string }) => {
+    if (key.name === "escape") {
+      hideFilter();
+      return;
+    }
+    // Use a tiny delay so the textbox value reflects the latest keypress.
+    setImmediate(() => {
+      filter = filterBox.getValue();
+      refresh();
+    });
+  });
+
+  function showFilter(): void {
+    filterBox.show();
+    list.top = 1;
+    filterBox.setValue("/ ");
+    filterBox.focus();
+    filter = "";
+    refresh();
+    container.screen.render();
+  }
+
+  function hideFilter(): void {
+    filterBox.hide();
+    list.top = 0;
+    filterBox.setValue("");
+    filter = "";
+    refresh();
+    list.focus();
+  }
+
   return {
     setSource(p) { sourcePath = p; filter = ""; refresh(); },
     setFilter(f) { filter = f; refresh(); },
     refresh,
     focus: () => list.focus(),
     onSelect: (c) => { cb = c; },
+    showFilter,
+    hideFilter,
   };
 }
