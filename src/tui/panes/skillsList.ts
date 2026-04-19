@@ -2,9 +2,9 @@ import blessed from "neo-blessed";
 import { getSkillsForSource } from "../../index.js";
 import type { SkillIndex } from "../../index.js";
 import type { SkillSummary } from "../../types.js";
-import { renderBadgeRow, truncate } from "../render/badges.js";
+import { truncate } from "../render/badges.js";
 
-const ROW_SIZE = 3; // name row + desc row + badge row per skill
+const ROW_SIZE = 2; // name row + desc row per skill
 
 export interface SkillsListHandle {
   setSource(sourcePath: string | null): void;
@@ -91,7 +91,7 @@ export function createSkillsListPane(
   function refresh(): void {
     if (!sourcePath) {
       skills = [];
-      list.setItems(["{gray-fg}(select a source){/}"]);
+      list.setItems(["(select a source)"]);
     } else {
       const all = getSkillsForSource(sourcePath, index);
       const q = filter.toLowerCase();
@@ -109,12 +109,10 @@ export function createSkillsListPane(
       const items: string[] = [];
       for (const s of skills) {
         const desc = truncate(s.description || "", paneWidth - 2);
-        const badges = renderBadgeRow(s);
-        items.push(`{bold}▸ ${s.name}{/bold}`);
+        items.push(`▸ ${s.name}`);
         items.push(`  ${desc}`);
-        items.push(badges ? `  ${badges}` : "");
       }
-      list.setItems(items.length ? items : ["{gray-fg}(no skills){/}"]);
+      list.setItems(items.length ? items : ["(no skills)"]);
     }
 
     // Restore selection on the correct name row after refresh

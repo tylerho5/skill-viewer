@@ -12,7 +12,6 @@ export function renderBadgeRow(skill: SkillSummary): string {
   if (skill.health) {
     const a = ageLabel(skill.health.ageDays);
     parts.push(`{${a.color}-fg}${a.text}{/}`);
-    if (skill.health.wordCount > 500) parts.push(`{gray-fg}${skill.health.wordCount}w{/}`);
     if (skill.health.completenessGaps.includes("no-examples")) parts.push("{red-fg}no examples{/}");
   }
   return parts.join(" · ");
