@@ -1,10 +1,11 @@
 import { SkillIndex } from "../index.js";
 import { setupWatcher } from "../watcher.js";
-import { createScreen } from "./screen.js";
+import { createScreen, setActivePane } from "./screen.js";
 import { formatTopBar, initialState } from "./state.js";
 import { createSourcesPane } from "./panes/sources.js";
 import { createSkillsListPane } from "./panes/skillsList.js";
 import { createDetailPane } from "./panes/detail.js";
+import type { FocusedPane } from "./state.js";
 
 export async function run(): Promise<void> {
   const index = new SkillIndex();
@@ -20,6 +21,17 @@ export async function run(): Promise<void> {
   const skillsPane = createSkillsListPane(panes.list, index);
   const detailPane = createDetailPane(panes.detail, index);
 
+  const order: FocusedPane[] = ["sources", "list", "detail"];
+
+  function setFocus(name: FocusedPane): void {
+    state.focus = name;
+    if (name === "sources") sourcesPane.focus();
+    else if (name === "list") skillsPane.focus();
+    else detailPane.focus();
+    setActivePane(panes, name);
+    panes.screen.render();
+  }
+
   sourcesPane.onSelect((sourcePath) => {
     state.selectedSourcePath = sourcePath;
     skillsPane.setSource(sourcePath);
@@ -28,7 +40,7 @@ export async function run(): Promise<void> {
     state.selectedSkillPath = skillPath;
     detailPane.show(skillPath);
   });
-  sourcesPane.focus();
+  setFocus("sources");
 
   let repaintTimer: NodeJS.Timeout | null = null;
   const requestRepaint = (): void => {
@@ -52,6 +64,18 @@ export async function run(): Promise<void> {
     originalSetAgent(agentId);
     watcher.switchAgent();
   };
+
+  panes.screen.key(["tab"], () => {
+    const i = order.indexOf(state.focus);
+    setFocus(order[(i + 1) % order.length]);
+  });
+  panes.screen.key(["S-tab"], () => {
+    const i = order.indexOf(state.focus);
+    setFocus(order[(i - 1 + order.length) % order.length]);
+  });
+  panes.screen.key(["1"], () => setFocus("sources"));
+  panes.screen.key(["2"], () => setFocus("list"));
+  panes.screen.key(["3"], () => setFocus("detail"));
 
   panes.screen.key(["q", "C-c"], async () => {
     panes.screen.destroy();

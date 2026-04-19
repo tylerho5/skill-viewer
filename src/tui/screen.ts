@@ -77,3 +77,16 @@ export function createScreen(): Panes {
 
   return { screen, topBar, sources, list, detail, bottomBar };
 }
+
+export type FocusTarget = "sources" | "list" | "detail";
+
+export function setActivePane(panes: Panes, focused: FocusTarget): void {
+  const map: Record<FocusTarget, blessed.Widgets.BoxElement> = {
+    sources: panes.sources,
+    list: panes.list,
+    detail: panes.detail,
+  };
+  for (const [key, box] of Object.entries(map) as [FocusTarget, blessed.Widgets.BoxElement][]) {
+    (box.style as { border: { fg: string } }).border.fg = key === focused ? "cyan" : "gray";
+  }
+}
