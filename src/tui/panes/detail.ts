@@ -28,6 +28,12 @@ export function createDetailPane(
     padding: { left: 1, right: 1 },
   });
 
+  // neo-blessed default wheel scroll is height/2 lines — override to 3 lines.
+  body.removeAllListeners("wheeldown");
+  body.removeAllListeners("wheelup");
+  body.on("wheeldown", () => { (body as blessed.Widgets.ScrollableBoxElement).scroll(3); container.screen.render(); });
+  body.on("wheelup", () => { (body as blessed.Widgets.ScrollableBoxElement).scroll(-3); container.screen.render(); });
+
   function render(): void {
     if (!currentPath) {
       body.setContent("{gray-fg}(select a skill){/}");

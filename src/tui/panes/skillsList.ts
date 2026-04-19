@@ -4,6 +4,8 @@ import type { SkillIndex } from "../../index.js";
 import type { SkillSummary } from "../../types.js";
 import { renderBadgeRow, truncate } from "../render/badges.js";
 
+const ROW_SIZE = 2; // name row + desc row per skill, no blank line
+
 export interface SkillsListHandle {
   setSource(sourcePath: string | null): void;
   setFilter(text: string): void;
@@ -25,9 +27,9 @@ export function createSkillsListPane(
   let tagRowVisible = false;
   let skills: SkillSummary[] = [];
   let topTags: { tag: string; count: number }[] = [];
+  let currentSkillIdx = 0;
   let cb: (p: string) => void = () => {};
 
-  // Tag row (row 0 when visible)
   const tagRow = blessed.box({
     parent: container,
     top: 0,
@@ -39,7 +41,6 @@ export function createSkillsListPane(
     style: { bg: "black", fg: "white" },
   });
 
-  // Filter box (row 0 when visible, below tagRow if both shown)
   const filterBox = blessed.textbox({
     parent: container,
     top: 0,
@@ -103,27 +104,52 @@ export function createSkillsListPane(
           )
         : filtered;
 
-      const width = Math.max(20, (container.width as number) - 4);
+      // Compute how much space to give description after reserving for badge text
+      const paneWidth = Math.max(20, (container.width as number) - 4);
       const items: string[] = [];
       for (const s of skills) {
         items.push(`{bold}▸ ${s.name}{/bold}`);
-        const desc = truncate(s.description || "", width - 4);
         const badges = renderBadgeRow(s);
-        items.push(`  ${desc}${badges ? " · " + badges : ""}`);
-        items.push("");
+        // Leave room for " · badges" if badges exist, otherwise full width for desc
+        const badgePlain = badges.replace(/\{[^}]+\}/g, ""); // strip tags for length
+        const descWidth = badges ? paneWidth - badgePlain.length - 3 : paneWidth;
+        const desc = truncate(s.description || "", Math.max(10, descWidth));
+        items.push(`  {gray-fg}${desc}{/}${badges ? " · " + badges : ""}`);
       }
       list.setItems(items.length ? items : ["{gray-fg}(no skills){/}"]);
     }
+
+    // Restore selection on the correct name row after refresh
+    currentSkillIdx = Math.min(currentSkillIdx, Math.max(0, skills.length - 1));
+    if (skills.length > 0) list.select(currentSkillIdx * ROW_SIZE);
 
     if (tagRowVisible) computeTagRow();
     list.top = listTop();
     container.screen.render();
   }
 
+  // Intercept up/down to skip by skill, not by row
+  list.on("keypress", (_ch: string, key: { name: string }) => {
+    if (key.name !== "up" && key.name !== "down") return;
+    setImmediate(() => {
+      if (key.name === "down") {
+        currentSkillIdx = Math.min(skills.length - 1, currentSkillIdx + 1);
+      } else {
+        currentSkillIdx = Math.max(0, currentSkillIdx - 1);
+      }
+      if (skills.length > 0) list.select(currentSkillIdx * ROW_SIZE);
+      container.screen.render();
+    });
+  });
+
+  // Enter on any row of a skill fires the callback
   list.on("select", (_item: unknown, idx: number) => {
-    const skillIdx = Math.floor(idx / 3);
+    const skillIdx = Math.floor(idx / ROW_SIZE);
     const s = skills[skillIdx];
-    if (s) cb(s.path);
+    if (s) {
+      currentSkillIdx = skillIdx;
+      cb(s.path);
+    }
   });
 
   filterBox.on("keypress", (_ch: string, key: { name: string }) => {
@@ -140,7 +166,6 @@ export function createSkillsListPane(
   function showFilter(): void {
     filterBox.show();
     filterBox.top = tagRowVisible ? 1 : 0;
-    list.top = listTop() + 1; // will be set in refresh but set eagerly
     filterBox.setValue("/ ");
     filterBox.focus();
     filter = "";
@@ -170,8 +195,6 @@ export function createSkillsListPane(
     refresh();
   }
 
-  // Wire digit keys 1-9 to select a tag when tag row is visible.
-  // Called from main.ts via the screen-level keypress handler.
   container.screen.key(["1", "2", "3", "4", "5", "6", "7", "8", "9"], (_ch: string, key: { name: string }) => {
     if (!tagRowVisible) return;
     const n = parseInt(key.name, 10) - 1;
@@ -182,7 +205,7 @@ export function createSkillsListPane(
   });
 
   return {
-    setSource(p) { sourcePath = p; filter = ""; tagFilter = null; refresh(); },
+    setSource(p) { sourcePath = p; filter = ""; tagFilter = null; currentSkillIdx = 0; refresh(); },
     setFilter(f) { filter = f; refresh(); },
     refresh,
     focus: () => list.focus(),
