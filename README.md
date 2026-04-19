@@ -47,6 +47,18 @@ While primarily built for Claude Code, the viewer can also browse skills for oth
 
 Each agent has its own set of supported file extensions and subdirectories. Switching agents re-scans the relevant directories and updates the UI.
 
+## Terminal UI
+
+Launch a keyboard-driven terminal view instead of the web server:
+
+```bash
+skill-viewer --tui
+# or
+skill-viewer -t
+```
+
+Press `?` inside the TUI for the full keybinding list.
+
 ## Options
 
 | Env var | Default | Description |
