@@ -29,9 +29,8 @@ if (args.includes("--version") || args.includes("-v")) {
 }
 
 if (args.includes("--tui") || args.includes("-t")) {
-  console.log("TUI coming soon");
-  process.exit(0);
-}
+  import("./tui/main.js").then((m) => m.run());
+} else {
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 
@@ -99,3 +98,4 @@ function shutdown() {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+}
