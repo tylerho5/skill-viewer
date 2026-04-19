@@ -70,6 +70,10 @@ export async function run(): Promise<void> {
     skillsPane.showFilter();
   });
 
+  panes.screen.key(["f"], () => {
+    if (state.focus === "list") skillsPane.toggleTagRow();
+  });
+
   panes.screen.key(["tab"], () => {
     const i = order.indexOf(state.focus);
     setFocus(order[(i + 1) % order.length]);

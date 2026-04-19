@@ -12,6 +12,7 @@ export interface SkillsListHandle {
   onSelect(cb: (skillPath: string) => void): void;
   showFilter(): void;
   hideFilter(): void;
+  toggleTagRow(): void;
 }
 
 export function createSkillsListPane(
@@ -20,9 +21,25 @@ export function createSkillsListPane(
 ): SkillsListHandle {
   let sourcePath: string | null = null;
   let filter = "";
+  let tagFilter: string | null = null;
+  let tagRowVisible = false;
   let skills: SkillSummary[] = [];
+  let topTags: { tag: string; count: number }[] = [];
   let cb: (p: string) => void = () => {};
 
+  // Tag row (row 0 when visible)
+  const tagRow = blessed.box({
+    parent: container,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    hidden: true,
+    tags: true,
+    style: { bg: "black", fg: "white" },
+  });
+
+  // Filter box (row 0 when visible, below tagRow if both shown)
   const filterBox = blessed.textbox({
     parent: container,
     top: 0,
@@ -47,6 +64,28 @@ export function createSkillsListPane(
     style: { selected: { bg: "blue", fg: "white" } },
   });
 
+  function listTop(): number {
+    return (tagRowVisible ? 1 : 0) + (!filterBox.hidden ? 1 : 0);
+  }
+
+  function computeTagRow(): void {
+    const freq = new Map<string, number>();
+    for (const s of skills) {
+      for (const t of [...(s.structuralTags ?? []), ...(s.toolReferences ?? [])]) {
+        freq.set(t, (freq.get(t) ?? 0) + 1);
+      }
+    }
+    topTags = [...freq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag, count]) => ({ tag, count }));
+
+    const content = topTags
+      .map((t, i) => `[{bold}${i + 1}{/bold} ${t.tag} (${t.count})]`)
+      .join(" ");
+    tagRow.setContent(content || "{gray-fg}(no tags){/}");
+  }
+
   function refresh(): void {
     if (!sourcePath) {
       skills = [];
@@ -54,9 +93,16 @@ export function createSkillsListPane(
     } else {
       const all = getSkillsForSource(sourcePath, index);
       const q = filter.toLowerCase();
-      skills = q
+      const filtered = q
         ? all.filter((s) => `${s.name} ${s.description}`.toLowerCase().includes(q))
         : all;
+      skills = tagFilter
+        ? filtered.filter((s) =>
+            (s.structuralTags ?? []).includes(tagFilter!) ||
+            (s.toolReferences ?? []).includes(tagFilter!)
+          )
+        : filtered;
+
       const width = Math.max(20, (container.width as number) - 4);
       const items: string[] = [];
       for (const s of skills) {
@@ -68,6 +114,9 @@ export function createSkillsListPane(
       }
       list.setItems(items.length ? items : ["{gray-fg}(no skills){/}"]);
     }
+
+    if (tagRowVisible) computeTagRow();
+    list.top = listTop();
     container.screen.render();
   }
 
@@ -82,7 +131,6 @@ export function createSkillsListPane(
       hideFilter();
       return;
     }
-    // Use a tiny delay so the textbox value reflects the latest keypress.
     setImmediate(() => {
       filter = filterBox.getValue();
       refresh();
@@ -91,7 +139,8 @@ export function createSkillsListPane(
 
   function showFilter(): void {
     filterBox.show();
-    list.top = 1;
+    filterBox.top = tagRowVisible ? 1 : 0;
+    list.top = listTop() + 1; // will be set in refresh but set eagerly
     filterBox.setValue("/ ");
     filterBox.focus();
     filter = "";
@@ -101,20 +150,45 @@ export function createSkillsListPane(
 
   function hideFilter(): void {
     filterBox.hide();
-    list.top = 0;
-    filterBox.setValue("");
     filter = "";
     refresh();
     list.focus();
   }
 
+  function toggleTagRow(): void {
+    tagRowVisible = !tagRowVisible;
+    if (tagRowVisible) {
+      tagRow.show();
+      tagRow.top = 0;
+      filterBox.top = 1;
+      computeTagRow();
+    } else {
+      tagRow.hide();
+      tagFilter = null;
+      filterBox.top = 0;
+    }
+    refresh();
+  }
+
+  // Wire digit keys 1-9 to select a tag when tag row is visible.
+  // Called from main.ts via the screen-level keypress handler.
+  container.screen.key(["1", "2", "3", "4", "5", "6", "7", "8", "9"], (_ch: string, key: { name: string }) => {
+    if (!tagRowVisible) return;
+    const n = parseInt(key.name, 10) - 1;
+    const entry = topTags[n];
+    if (!entry) return;
+    tagFilter = tagFilter === entry.tag ? null : entry.tag;
+    refresh();
+  });
+
   return {
-    setSource(p) { sourcePath = p; filter = ""; refresh(); },
+    setSource(p) { sourcePath = p; filter = ""; tagFilter = null; refresh(); },
     setFilter(f) { filter = f; refresh(); },
     refresh,
     focus: () => list.focus(),
     onSelect: (c) => { cb = c; },
     showFilter,
     hideFilter,
+    toggleTagRow,
   };
 }
