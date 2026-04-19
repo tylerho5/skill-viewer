@@ -1,0 +1,68 @@
+import blessed from "neo-blessed";
+import type { SkillIndex } from "../../index.js";
+import { renderMarkdown } from "../render/markdown.js";
+
+export interface DetailPaneHandle {
+  show(skillPath: string | null): void;
+  focus(): void;
+  refresh(): void;
+}
+
+export function createDetailPane(
+  container: blessed.Widgets.BoxElement,
+  index: SkillIndex,
+): DetailPaneHandle {
+  let currentPath: string | null = null;
+
+  const body = blessed.box({
+    parent: container,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    keys: true,
+    mouse: true,
+    scrollable: true,
+    scrollbar: { ch: " ", style: { bg: "gray" } },
+    tags: true,
+    padding: { left: 1, right: 1 },
+  });
+
+  function render(): void {
+    if (!currentPath) {
+      body.setContent("{gray-fg}(select a skill){/}");
+      container.screen.render();
+      return;
+    }
+    const skill = index.get(currentPath);
+    if (!skill) {
+      body.setContent("{red-fg}Skill not found{/}");
+      container.screen.render();
+      return;
+    }
+
+    const lines: string[] = [];
+    lines.push(`{bold}${skill.name}{/bold}`);
+    if (skill.description) lines.push(skill.description);
+    lines.push(`{gray-fg}${skill.path}{/}`);
+    lines.push("");
+    lines.push("{bold}METADATA{/bold}");
+    for (const [k, v] of Object.entries(skill.frontmatter)) {
+      lines.push(`  {cyan-fg}${k}{/}  ${String(v)}`);
+    }
+    lines.push("");
+    lines.push("{bold}CONTENT{/bold}");
+    lines.push("");
+    lines.push(renderMarkdown(skill.content));
+
+    body.setContent(lines.join("\n"));
+    body.setScrollPerc(0);
+    container.screen.render();
+  }
+
+  return {
+    show(path) { currentPath = path; render(); },
+    focus: () => body.focus(),
+    refresh: render,
+  };
+}

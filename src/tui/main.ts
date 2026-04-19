@@ -4,6 +4,7 @@ import { createScreen } from "./screen.js";
 import { formatTopBar, initialState } from "./state.js";
 import { createSourcesPane } from "./panes/sources.js";
 import { createSkillsListPane } from "./panes/skillsList.js";
+import { createDetailPane } from "./panes/detail.js";
 
 export async function run(): Promise<void> {
   const index = new SkillIndex();
@@ -17,6 +18,7 @@ export async function run(): Promise<void> {
 
   const sourcesPane = createSourcesPane(panes.sources, index);
   const skillsPane = createSkillsListPane(panes.list, index);
+  const detailPane = createDetailPane(panes.detail, index);
 
   sourcesPane.onSelect((sourcePath) => {
     state.selectedSourcePath = sourcePath;
@@ -24,6 +26,7 @@ export async function run(): Promise<void> {
   });
   skillsPane.onSelect((skillPath) => {
     state.selectedSkillPath = skillPath;
+    detailPane.show(skillPath);
   });
   sourcesPane.focus();
 
@@ -36,6 +39,7 @@ export async function run(): Promise<void> {
       panes.topBar.setContent(formatTopBar(index, index.getActiveAgent()));
       sourcesPane.refresh();
       skillsPane.refresh();
+      detailPane.refresh();
       panes.screen.render();
     }, 150);
   };
