@@ -1,10 +1,11 @@
-import { SkillIndex } from "../index.js";
+import { SkillIndex, getSources } from "../index.js";
 import { setupWatcher } from "../watcher.js";
 import { createScreen, setActivePane } from "./screen.js";
 import { formatTopBar, initialState } from "./state.js";
 import { createSourcesPane } from "./panes/sources.js";
 import { createSkillsListPane } from "./panes/skillsList.js";
 import { createDetailPane } from "./panes/detail.js";
+import { createGlobalSearchOverlay } from "./overlays/globalSearch.js";
 import type { FocusedPane } from "./state.js";
 
 export async function run(): Promise<void> {
@@ -31,6 +32,34 @@ export async function run(): Promise<void> {
     setActivePane(panes, name);
     panes.screen.render();
   }
+
+  function navigateToSkill(skillPath: string): void {
+    const skill = index.get(skillPath);
+    if (!skill) return;
+
+    const sources = getSources(index);
+    let foundSourcePath: string | null = null;
+
+    if (skill.sourceType === "plugin") {
+      foundSourcePath = sources.plugins.find((p) => p.name === skill.sourceName)?.path ?? null;
+    } else if (skill.sourceType === "custom") {
+      foundSourcePath = sources.custom[0]?.path ?? null;
+    } else if (skill.sourceType === "command") {
+      foundSourcePath = sources.commands[0]?.path ?? null;
+    } else if (skill.sourceType === "project") {
+      foundSourcePath = sources.projects.find((p) => p.name === skill.sourceName)?.path ?? null;
+    }
+
+    if (foundSourcePath) {
+      state.selectedSourcePath = foundSourcePath;
+      skillsPane.setSource(foundSourcePath);
+    }
+    state.selectedSkillPath = skillPath;
+    detailPane.show(skillPath);
+    setFocus("detail");
+  }
+
+  const searchOverlay = createGlobalSearchOverlay(panes.screen, index, navigateToSkill);
 
   sourcesPane.onSelect((sourcePath) => {
     state.selectedSourcePath = sourcePath;
@@ -73,6 +102,8 @@ export async function run(): Promise<void> {
   panes.screen.key(["f"], () => {
     if (state.focus === "list") skillsPane.toggleTagRow();
   });
+
+  panes.screen.key(["C-p"], () => searchOverlay.open());
 
   panes.screen.key(["tab"], () => {
     const i = order.indexOf(state.focus);
