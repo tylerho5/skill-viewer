@@ -47,7 +47,7 @@ export function createGlobalSearchOverlay(
     mouse: true,
     scrollable: true,
     tags: true,
-    style: { selected: { bg: "blue", fg: "white" } },
+    style: { selected: { bg: "cyan", fg: "black", bold: true } },
   });
 
   function runSearch(query: string): void {

@@ -4,7 +4,7 @@ import type { SkillIndex } from "../../index.js";
 import type { SkillSummary } from "../../types.js";
 import { renderBadgeRow, truncate } from "../render/badges.js";
 
-const ROW_SIZE = 2; // name row + desc row per skill, no blank line
+const ROW_SIZE = 3; // name row + desc row + badge row per skill
 
 export interface SkillsListHandle {
   setSource(sourcePath: string | null): void;
@@ -63,7 +63,7 @@ export function createSkillsListPane(
     mouse: true,
     scrollable: true,
     tags: true,
-    style: { selected: { bg: "blue", fg: "white" } },
+    style: { selected: { bg: "cyan", fg: "black", bold: true } },
   });
 
   function listTop(): number {
@@ -105,17 +105,14 @@ export function createSkillsListPane(
           )
         : filtered;
 
-      // Compute how much space to give description after reserving for badge text
       const paneWidth = Math.max(20, (container.width as number) - 4);
       const items: string[] = [];
       for (const s of skills) {
-        items.push(`{bold}▸ ${s.name}{/bold}`);
+        const desc = truncate(s.description || "", paneWidth - 2);
         const badges = renderBadgeRow(s);
-        // Leave room for " · badges" if badges exist, otherwise full width for desc
-        const badgePlain = badges.replace(/\{[^}]+\}/g, ""); // strip tags for length
-        const descWidth = badges ? paneWidth - badgePlain.length - 3 : paneWidth;
-        const desc = truncate(s.description || "", Math.max(10, descWidth));
-        items.push(`  {gray-fg}${desc}{/}${badges ? " · " + badges : ""}`);
+        items.push(`{bold}▸ ${s.name}{/bold}`);
+        items.push(`  ${desc}`);
+        items.push(badges ? `  ${badges}` : "");
       }
       list.setItems(items.length ? items : ["{gray-fg}(no skills){/}"]);
     }

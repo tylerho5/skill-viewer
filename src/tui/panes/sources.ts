@@ -39,7 +39,7 @@ export function createSourcesPane(
     keys: true,
     mouse: true,
     style: {
-      selected: { bg: "blue", fg: "white" },
+      selected: { bg: "cyan", fg: "black", bold: true },
       item: { fg: "white" },
     },
     tags: true,

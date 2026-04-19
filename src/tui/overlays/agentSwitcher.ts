@@ -35,7 +35,7 @@ export function createAgentSwitcherOverlay(
     keys: true,
     mouse: true,
     tags: true,
-    style: { selected: { bg: "blue", fg: "white" } },
+    style: { selected: { bg: "cyan", fg: "black", bold: true } },
   });
 
   function buildItems(): string[] {

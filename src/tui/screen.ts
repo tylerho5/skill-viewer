@@ -26,7 +26,7 @@ export function createScreen(): Panes {
     right: 0,
     height: 1,
     content: " Skill Viewer ",
-    style: { bg: "blue", fg: "white" },
+    style: { bg: "black", fg: "cyan", bold: true },
   });
 
   const sources = blessed.box({
@@ -72,7 +72,7 @@ export function createScreen(): Panes {
     right: 0,
     height: 1,
     content: " Tab switch · ↑↓ move · Enter open · / filter · ^P search · a agent · ? help · q quit ",
-    style: { bg: "blue", fg: "white" },
+    style: { bg: "black", fg: "white" },
   });
 
   const tooNarrow = blessed.box({
