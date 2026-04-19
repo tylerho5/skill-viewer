@@ -9,6 +9,7 @@ const ROW_SIZE = 2; // name row + desc row per skill, no blank line
 export interface SkillsListHandle {
   setSource(sourcePath: string | null): void;
   setFilter(text: string): void;
+  selectSkill(skillPath: string): void;
   refresh(): void;
   focus(): void;
   onSelect(cb: (skillPath: string) => void): void;
@@ -204,9 +205,19 @@ export function createSkillsListPane(
     refresh();
   });
 
+  function selectSkill(skillPath: string): void {
+    const idx = skills.findIndex((s) => s.path === skillPath);
+    if (idx >= 0) {
+      currentSkillIdx = idx;
+      list.select(idx * ROW_SIZE);
+      container.screen.render();
+    }
+  }
+
   return {
     setSource(p) { sourcePath = p; filter = ""; tagFilter = null; currentSkillIdx = 0; refresh(); },
     setFilter(f) { filter = f; refresh(); },
+    selectSkill,
     refresh,
     focus: () => list.focus(),
     onSelect: (c) => { cb = c; },

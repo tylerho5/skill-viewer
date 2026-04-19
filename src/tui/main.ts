@@ -79,6 +79,16 @@ export async function run(): Promise<void> {
     state.selectedSourcePath = sourcePath;
     skillsPane.setSource(sourcePath);
   });
+  sourcesPane.onSelectSkill((skillPath, sourcePath) => {
+    state.selectedSourcePath = sourcePath;
+    state.selectedSkillPath = skillPath;
+    skillsPane.setSource(sourcePath);
+    // setSource rebuilds the list; select the specific skill after the microtask
+    setImmediate(() => {
+      skillsPane.selectSkill(skillPath);
+      detailPane.show(skillPath);
+    });
+  });
   skillsPane.onSelect((skillPath) => {
     state.selectedSkillPath = skillPath;
     detailPane.show(skillPath);

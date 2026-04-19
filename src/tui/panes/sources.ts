@@ -5,14 +5,21 @@ import { getSources } from "../../index.js";
 export interface SourcesPaneHandle {
   refresh(): void;
   focus(): void;
+  /** Called when a plugin/project source header is selected — populates pane 2 */
   onSelect(cb: (sourcePath: string) => void): void;
+  /** Called when an individual skill entry is selected — bypasses pane 2 and goes straight to detail */
+  onSelectSkill(cb: (skillPath: string, sourcePath: string) => void): void;
 }
+
+type RowType = "top_header" | "source_header" | "skill_entry";
 
 interface Row {
   label: string;
-  sourcePath: string | null;
-  groupKey: string;
-  isHeader: boolean;
+  type: RowType;
+  collapseKey: string;         // key used for the collapsed set (top_header or source_header)
+  sourcePath: string | null;   // source_header: path to pass to pane 2
+  skillPath: string | null;    // skill_entry: path of the individual skill
+  sourcePathForSkill: string | null; // skill_entry: source path for pane 2
 }
 
 export function createSourcesPane(
@@ -21,6 +28,7 @@ export function createSourcesPane(
 ): SourcesPaneHandle {
   const collapsed = new Set<string>();
   let selectCb: (p: string) => void = () => {};
+  let selectSkillCb: (skillPath: string, sourcePath: string) => void = () => {};
 
   const list = blessed.list({
     parent: container,
@@ -41,22 +49,75 @@ export function createSourcesPane(
     const sources = getSources(index);
     const rows: Row[] = [];
 
-    const addGroup = (key: string, title: string, entries: { name: string; path: string; count?: number }[]): void => {
-      if (entries.length === 0 && key !== "projects") return;
-      const chevron = collapsed.has(key) ? "▸" : "▾";
-      const total = entries.reduce((n, e) => n + (e.count ?? 0), 0);
-      rows.push({ label: `${chevron} {bold}${title}{/bold}  ${total}`, sourcePath: null, groupKey: key, isHeader: true });
-      if (collapsed.has(key)) return;
-      for (const e of entries) {
-        const count = e.count != null ? `  {gray-fg}${e.count}{/gray-fg}` : "";
-        rows.push({ label: `  ${e.name}${count}`, sourcePath: e.path, groupKey: key, isHeader: false });
+    // ── PLUGINS: two-level tree (plugin header → individual skills) ──────────
+    {
+      const key = "plugins";
+      const total = sources.plugins.reduce((n, p) => n + p.count, 0);
+      if (sources.plugins.length > 0) {
+        const chevron = collapsed.has(key) ? "▸" : "▾";
+        rows.push({ label: `${chevron} {bold}PLUGINS{/bold}  {gray-fg}${total}{/}`, type: "top_header", collapseKey: key, sourcePath: null, skillPath: null, sourcePathForSkill: null });
+        if (!collapsed.has(key)) {
+          for (const plugin of sources.plugins) {
+            const subKey = `plugin:${plugin.name}`;
+            const chevron2 = collapsed.has(subKey) ? "▸" : "▾";
+            rows.push({ label: `  ${chevron2} {bold}${plugin.name}{/bold}  {gray-fg}${plugin.count}{/}`, type: "source_header", collapseKey: subKey, sourcePath: plugin.path, skillPath: null, sourcePathForSkill: null });
+            if (!collapsed.has(subKey)) {
+              for (const s of plugin.skills) {
+                rows.push({ label: `      ${s.name}`, type: "skill_entry", collapseKey: subKey, sourcePath: null, skillPath: s.path, sourcePathForSkill: plugin.path });
+              }
+            }
+          }
+        }
       }
-    };
+    }
 
-    addGroup("plugins", "PLUGINS", sources.plugins);
-    addGroup("custom", "USER SKILLS", sources.custom);
-    addGroup("commands", "COMMANDS", sources.commands);
-    addGroup("projects", "PROJECTS", sources.projects.map((p) => ({ name: p.name, path: p.path, count: p.skillCount + p.commandCount })));
+    // ── USER SKILLS: flat individual skill entries ───────────────────────────
+    {
+      const key = "custom";
+      const total = sources.custom.reduce((n, c) => n + c.count, 0);
+      if (total > 0) {
+        const chevron = collapsed.has(key) ? "▸" : "▾";
+        rows.push({ label: `${chevron} {bold}USER SKILLS{/bold}  {gray-fg}${total}{/}`, type: "top_header", collapseKey: key, sourcePath: null, skillPath: null, sourcePathForSkill: null });
+        if (!collapsed.has(key)) {
+          for (const src of sources.custom) {
+            for (const f of src.files) {
+              rows.push({ label: `  ${f.name}`, type: "skill_entry", collapseKey: key, sourcePath: null, skillPath: f.path, sourcePathForSkill: src.path });
+            }
+          }
+        }
+      }
+    }
+
+    // ── COMMANDS: flat individual command entries ────────────────────────────
+    {
+      const key = "commands";
+      const total = sources.commands.reduce((n, c) => n + c.count, 0);
+      if (total > 0) {
+        const chevron = collapsed.has(key) ? "▸" : "▾";
+        rows.push({ label: `${chevron} {bold}COMMANDS{/bold}  {gray-fg}${total}{/}`, type: "top_header", collapseKey: key, sourcePath: null, skillPath: null, sourcePathForSkill: null });
+        if (!collapsed.has(key)) {
+          for (const src of sources.commands) {
+            for (const f of src.files) {
+              rows.push({ label: `  ${f.name}`, type: "skill_entry", collapseKey: key, sourcePath: null, skillPath: f.path, sourcePathForSkill: src.path });
+            }
+          }
+        }
+      }
+    }
+
+    // ── PROJECTS: source-level entries (skills browsed via pane 2) ───────────
+    {
+      const key = "projects";
+      const chevron = collapsed.has(key) ? "▸" : "▾";
+      const total = sources.projects.reduce((n, p) => n + p.skillCount + p.commandCount, 0);
+      rows.push({ label: `${chevron} {bold}PROJECTS{/bold}  {gray-fg}${total}{/}`, type: "top_header", collapseKey: key, sourcePath: null, skillPath: null, sourcePathForSkill: null });
+      if (!collapsed.has(key)) {
+        for (const p of sources.projects) {
+          const count = p.skillCount + p.commandCount;
+          rows.push({ label: `  ${p.name}  {gray-fg}${count}{/}`, type: "source_header", collapseKey: `project:${p.path}`, sourcePath: p.path, skillPath: null, sourcePathForSkill: null });
+        }
+      }
+    }
 
     return rows;
   }
@@ -72,12 +133,19 @@ export function createSourcesPane(
   list.on("select", (_item: unknown, idx: number) => {
     const row = rows[idx];
     if (!row) return;
-    if (row.isHeader) {
-      if (collapsed.has(row.groupKey)) collapsed.delete(row.groupKey);
-      else collapsed.add(row.groupKey);
+
+    if (row.type === "top_header") {
+      if (collapsed.has(row.collapseKey)) collapsed.delete(row.collapseKey);
+      else collapsed.add(row.collapseKey);
       refresh();
-    } else if (row.sourcePath) {
-      selectCb(row.sourcePath);
+    } else if (row.type === "source_header") {
+      // Toggle collapse for plugin subgroups; also populate pane 2
+      if (collapsed.has(row.collapseKey)) collapsed.delete(row.collapseKey);
+      else collapsed.add(row.collapseKey);
+      refresh();
+      if (row.sourcePath) selectCb(row.sourcePath);
+    } else if (row.type === "skill_entry" && row.skillPath && row.sourcePathForSkill) {
+      selectSkillCb(row.skillPath, row.sourcePathForSkill);
     }
   });
 
@@ -87,5 +155,6 @@ export function createSourcesPane(
     refresh,
     focus: () => list.focus(),
     onSelect: (cb) => { selectCb = cb; },
+    onSelectSkill: (cb) => { selectSkillCb = cb; },
   };
 }
