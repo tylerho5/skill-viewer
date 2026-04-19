@@ -32,6 +32,9 @@ export async function run(): Promise<void> {
     else if (name === "list") skillsPane.focus();
     else detailPane.focus();
     setActivePane(panes, name);
+    sourcesPane.setActive(name === "sources");
+    skillsPane.setActive(name === "list");
+    detailPane.setActive(name === "detail");
     panes.screen.render();
   }
 

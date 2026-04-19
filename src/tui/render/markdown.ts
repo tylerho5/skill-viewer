@@ -1,7 +1,7 @@
 // Render markdown to a string using blessed tag syntax ({bold}, {cyan-fg}, etc.)
 // Keep it small and predictable; trade fidelity for zero deps.
 
-function escapeBlessed(s: string): string {
+export function escapeBlessed(s: string): string {
   return s.replace(/[{}]/g, (c) => (c === "{" ? "{open}" : "{close}"));
 }
 

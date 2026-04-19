@@ -1,11 +1,12 @@
 import blessed from "neo-blessed";
 import type { SkillIndex } from "../../index.js";
-import { renderMarkdown } from "../render/markdown.js";
+import { escapeBlessed } from "../render/markdown.js";
 
 export interface DetailPaneHandle {
   show(skillPath: string | null): void;
   focus(): void;
   refresh(): void;
+  setActive(active: boolean): void;
 }
 
 export function createDetailPane(
@@ -26,7 +27,13 @@ export function createDetailPane(
     scrollbar: { ch: " ", style: { bg: "gray" } },
     tags: true,
     padding: { left: 1, right: 1 },
+    style: { fg: "white" },
   });
+
+  function setActive(active: boolean): void {
+    (body.style as { fg: string }).fg = active ? "white" : "gray";
+    container.screen.render();
+  }
 
   // neo-blessed default wheel scroll is height/2 lines — override to 3 lines.
   body.removeAllListeners("wheeldown");
@@ -47,19 +54,25 @@ export function createDetailPane(
       return;
     }
 
+    const width = Math.max(20, (container.width as number) - 4);
+    const dividerWidth = Math.min(width, 60);
+    const divider = `{gray-fg}${"─".repeat(dividerWidth)}{/}`;
+
     const lines: string[] = [];
     lines.push(`{bold}${skill.name}{/bold}`);
     if (skill.description) lines.push(skill.description);
     lines.push(`{gray-fg}${skill.path}{/}`);
     lines.push("");
     lines.push("{bold}METADATA{/bold}");
+    lines.push(divider);
     for (const [k, v] of Object.entries(skill.frontmatter)) {
       lines.push(`  {cyan-fg}${k}{/}  ${String(v)}`);
     }
     lines.push("");
     lines.push("{bold}CONTENT{/bold}");
+    lines.push(divider);
     lines.push("");
-    lines.push(renderMarkdown(skill.content));
+    lines.push(escapeBlessed(skill.content));
 
     body.setContent(lines.join("\n"));
     body.setScrollPerc(0);
@@ -70,5 +83,6 @@ export function createDetailPane(
     show(path) { currentPath = path; render(); },
     focus: () => body.focus(),
     refresh: render,
+    setActive,
   };
 }

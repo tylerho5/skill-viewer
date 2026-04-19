@@ -12,6 +12,7 @@ export interface SkillsListHandle {
   selectSkill(skillPath: string): void;
   refresh(): void;
   focus(): void;
+  setActive(active: boolean): void;
   onSelect(cb: (skillPath: string) => void): void;
   showFilter(): void;
   hideFilter(): void;
@@ -63,8 +64,32 @@ export function createSkillsListPane(
     mouse: true,
     scrollable: true,
     tags: true,
-    style: { selected: { bg: "cyan", fg: "black", bold: true } },
+    style: {
+      selected: { bg: "cyan", fg: "black", bold: true },
+      item: { fg: "white", bold: true },
+    },
   });
+
+  function setActive(active: boolean): void {
+    const s = list.style as {
+      selected: { bg: string; fg: string; bold?: boolean };
+      item: { fg: string; bold?: boolean };
+    };
+    if (active) {
+      s.item.fg = "white";
+      s.item.bold = true;
+      s.selected.bg = "cyan";
+      s.selected.fg = "black";
+      s.selected.bold = true;
+    } else {
+      s.item.fg = "gray";
+      s.item.bold = false;
+      s.selected.bg = "#222222";
+      s.selected.fg = "white";
+      s.selected.bold = false;
+    }
+    container.screen.render();
+  }
 
   function listTop(): number {
     return (tagRowVisible ? 1 : 0) + (!filterBox.hidden ? 1 : 0);
@@ -110,7 +135,7 @@ export function createSkillsListPane(
       for (const s of skills) {
         const desc = truncate(s.description || "", paneWidth - 2);
         items.push(`▸ ${s.name}`);
-        items.push(`  ${desc}`);
+        items.push(`  {gray-fg}${desc}{/}`);
       }
       list.setItems(items.length ? items : ["(no skills)"]);
     }
@@ -215,6 +240,7 @@ export function createSkillsListPane(
     selectSkill,
     refresh,
     focus: () => list.focus(),
+    setActive,
     onSelect: (c) => { cb = c; },
     showFilter,
     hideFilter,

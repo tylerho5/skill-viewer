@@ -1,3 +1,4 @@
+import os from "node:os";
 import type { SkillIndex } from "../index.js";
 import type { AgentConfig } from "../types.js";
 
@@ -26,5 +27,6 @@ export function initialState(): ViewState {
 }
 
 export function formatTopBar(index: SkillIndex, agent: AgentConfig): string {
-  return ` Skill Viewer · ${agent.name} · ${index.skills.length} skills · watching ${agent.globalDir} `;
+  const dir = agent.globalDir.replace(os.homedir(), "~");
+  return ` Skill Viewer   ${agent.name}   ${index.skills.length} skills   ${dir} `;
 }

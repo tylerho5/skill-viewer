@@ -71,7 +71,7 @@ export function createScreen(): Panes {
     left: 0,
     right: 0,
     height: 1,
-    content: " Tab switch · ↑↓ move · Enter open · / filter · ^P search · a agent · ? help · q quit ",
+    content: " ↑↓ move   Tab pane   Enter open   / filter   ^P search   a agent   ? help   q quit ",
     style: { bg: "black", fg: "white" },
   });
 

@@ -5,6 +5,7 @@ import { getSources } from "../../index.js";
 export interface SourcesPaneHandle {
   refresh(): void;
   focus(): void;
+  setActive(active: boolean): void;
   /** Called when a plugin/project source header is selected — populates pane 2 */
   onSelect(cb: (sourcePath: string) => void): void;
   /** Called when an individual skill entry is selected — bypasses pane 2 and goes straight to detail */
@@ -40,10 +41,31 @@ export function createSourcesPane(
     mouse: true,
     style: {
       selected: { bg: "cyan", fg: "black", bold: true },
-      item: { fg: "white" },
+      item: { fg: "white", bold: true },
     },
     tags: true,
   });
+
+  function setActive(active: boolean): void {
+    const s = list.style as {
+      selected: { bg: string; fg: string; bold?: boolean };
+      item: { fg: string; bold?: boolean };
+    };
+    if (active) {
+      s.item.fg = "white";
+      s.item.bold = true;
+      s.selected.bg = "cyan";
+      s.selected.fg = "black";
+      s.selected.bold = true;
+    } else {
+      s.item.fg = "gray";
+      s.item.bold = false;
+      s.selected.bg = "#222222";
+      s.selected.fg = "white";
+      s.selected.bold = false;
+    }
+    container.screen.render();
+  }
 
   function buildRows(): Row[] {
     const sources = getSources(index);
@@ -154,6 +176,7 @@ export function createSourcesPane(
   return {
     refresh,
     focus: () => list.focus(),
+    setActive,
     onSelect: (cb) => { selectCb = cb; },
     onSelectSkill: (cb) => { selectSkillCb = cb; },
   };
