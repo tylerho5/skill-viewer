@@ -75,6 +75,46 @@ export function createScreen(): Panes {
     style: { bg: "blue", fg: "white" },
   });
 
+  const tooNarrow = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: "shrink",
+    height: "shrink",
+    content: " Terminal too narrow — please resize to at least 60 columns ",
+    hidden: true,
+    style: { fg: "yellow" },
+  });
+
+  function applyLayout(): void {
+    const w = screen.width as number;
+    if (w < 60) {
+      sources.hide();
+      list.hide();
+      detail.hide();
+      tooNarrow.show();
+      return;
+    }
+    tooNarrow.hide();
+    if (w < 100) {
+      sources.hide();
+      list.show();
+      list.left = 0 as unknown as string;
+      list.width = Math.floor(w * 0.3) as unknown as string;
+      detail.show();
+      detail.left = Math.floor(w * 0.3) as unknown as string;
+      detail.right = 0 as unknown as string;
+    } else {
+      sources.show();
+      list.left = LEFT_W as unknown as string;
+      list.width = MID_W as unknown as string;
+      detail.left = (LEFT_W + MID_W) as unknown as string;
+      detail.right = 0 as unknown as string;
+    }
+  }
+
+  screen.on("resize", () => { applyLayout(); screen.render(); });
+
   return { screen, topBar, sources, list, detail, bottomBar };
 }
 
