@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx watch src/cli.ts",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "test": "node --test --import tsx tests/**/*.test.ts"
   },
   "keywords": [
     "claude",

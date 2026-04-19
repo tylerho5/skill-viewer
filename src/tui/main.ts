@@ -3,6 +3,7 @@ import { setupWatcher } from "../watcher.js";
 import { createScreen } from "./screen.js";
 import { formatTopBar, initialState } from "./state.js";
 import { createSourcesPane } from "./panes/sources.js";
+import { createSkillsListPane } from "./panes/skillsList.js";
 
 export async function run(): Promise<void> {
   const index = new SkillIndex();
@@ -15,9 +16,14 @@ export async function run(): Promise<void> {
   panes.screen.render();
 
   const sourcesPane = createSourcesPane(panes.sources, index);
+  const skillsPane = createSkillsListPane(panes.list, index);
+
   sourcesPane.onSelect((sourcePath) => {
     state.selectedSourcePath = sourcePath;
-    panes.screen.render();
+    skillsPane.setSource(sourcePath);
+  });
+  skillsPane.onSelect((skillPath) => {
+    state.selectedSkillPath = skillPath;
   });
   sourcesPane.focus();
 
@@ -29,6 +35,7 @@ export async function run(): Promise<void> {
       index.build();
       panes.topBar.setContent(formatTopBar(index, index.getActiveAgent()));
       sourcesPane.refresh();
+      skillsPane.refresh();
       panes.screen.render();
     }, 150);
   };
