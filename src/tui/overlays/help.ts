@@ -55,7 +55,7 @@ export function createHelpOverlay(screen: blessed.Widgets.Screen): HelpOverlay {
     padding: { left: 1, right: 1 },
   });
 
-  box.key(/.*/u, () => close());
+  box.on("keypress", () => close());
 
   function open(): void {
     box.show();
