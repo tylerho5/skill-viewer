@@ -6,6 +6,7 @@ import { createSourcesPane } from "./panes/sources.js";
 import { createSkillsListPane } from "./panes/skillsList.js";
 import { createDetailPane } from "./panes/detail.js";
 import { createGlobalSearchOverlay } from "./overlays/globalSearch.js";
+import { createAgentSwitcherOverlay } from "./overlays/agentSwitcher.js";
 import type { FocusedPane } from "./state.js";
 
 export async function run(): Promise<void> {
@@ -61,6 +62,18 @@ export async function run(): Promise<void> {
 
   const searchOverlay = createGlobalSearchOverlay(panes.screen, index, navigateToSkill);
 
+  const agentSwitcher = createAgentSwitcherOverlay(panes.screen, index, (agentId) => {
+    index.setAgent(agentId);
+    state.selectedSourcePath = null;
+    state.selectedSkillPath = null;
+    index.build();
+    sourcesPane.refresh();
+    skillsPane.setSource(null);
+    detailPane.show(null);
+    panes.topBar.setContent(formatTopBar(index, index.getActiveAgent()));
+    panes.screen.render();
+  });
+
   sourcesPane.onSelect((sourcePath) => {
     state.selectedSourcePath = sourcePath;
     skillsPane.setSource(sourcePath);
@@ -104,6 +117,7 @@ export async function run(): Promise<void> {
   });
 
   panes.screen.key(["C-p"], () => searchOverlay.open());
+  panes.screen.key(["a"], () => agentSwitcher.open());
 
   panes.screen.key(["tab"], () => {
     const i = order.indexOf(state.focus);
