@@ -59,6 +59,8 @@ skill-viewer -t
 
 Press `?` inside the TUI for the full keybinding list.
 
+![Terminal UI](assets/tui.png)
+
 ## Options
 
 | Env var | Default | Description |
