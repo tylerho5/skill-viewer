@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx watch src/cli.ts",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "test": "node --test --import tsx tests/**/*.test.ts"
   },
   "keywords": [
     "claude",
@@ -28,9 +29,11 @@
   "dependencies": {
     "chokidar": "^4.0.0",
     "express": "^5.1.0",
+    "neo-blessed": "^0.2.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/blessed": "^0.1.27",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",

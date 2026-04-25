@@ -7,4 +7,5 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   banner: { js: "#!/usr/bin/env node" },
+  external: ["neo-blessed"],
 });

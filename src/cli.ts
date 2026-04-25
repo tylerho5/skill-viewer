@@ -16,7 +16,8 @@ if (args.includes("--help") || args.includes("-h")) {
   console.log(`Usage: skill-viewer [options]\n`);
   console.log(`Options:`);
   console.log(`  -h, --help     Show this help message`);
-  console.log(`  -v, --version  Show version number\n`);
+  console.log(`  -v, --version  Show version number`);
+  console.log(`  -t, --tui      Launch terminal UI instead of web server\n`);
   console.log(`Environment variables:`);
   console.log(`  PORT           Server port (default: 8080)`);
   process.exit(0);
@@ -26,6 +27,10 @@ if (args.includes("--version") || args.includes("-v")) {
   console.log(version);
   process.exit(0);
 }
+
+if (args.includes("--tui") || args.includes("-t")) {
+  import("./tui/main.js").then((m) => m.run());
+} else {
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 
@@ -93,3 +98,4 @@ function shutdown() {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+}
