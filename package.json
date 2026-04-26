@@ -1,6 +1,6 @@
 {
   "name": "skill-viewer",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Browse and inspect Claude Code skills installed in ~/.claude/",
   "bin": {
     "skill-viewer": "dist/cli.js"
